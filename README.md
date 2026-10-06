@@ -63,14 +63,6 @@ Phone Agent 是原生 iPhone AI 助手。通过你授权的屏幕共享理解当
 
 完整步骤见[配置与运行](docs/setup.md)。
 
-## 界面
-
-<div align="center">
-
-<img src="docs/images/sidebar-light.jpg" alt="Phone Agent 浅色侧栏" width="300">
-
-</div>
-
 ## 数据与运行说明
 
 API Key 保存在 iPhone 钥匙串中。任务、记忆、录音和文件保存在本机；共享画面、任务文字和相关上下文会按对应授权发送到你配置的模型服务。
