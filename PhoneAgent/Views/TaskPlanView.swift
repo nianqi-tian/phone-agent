@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TaskPlanView: View {
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var lines = ""
     @State private var error = ""

@@ -1,6 +1,6 @@
 # Phone Agent
 
-原生 iPhone AI 助手，配合 ESP32-C3 / ESP32-S3 蓝牙鼠标与键盘配件，根据共享画面执行手机任务。当前源码版本：**1.0 / Build 67**。
+原生 iPhone AI 助手，配合 ESP32-C3 / ESP32-S3 蓝牙鼠标与键盘配件，根据共享画面执行手机任务。当前源码版本：**1.0 / Build 67**。Swift 工程已按 GestaltEdit 的职责划分与同步文件夹方式整理，详见 [源码结构](docs/architecture.md)。
 
 ## 功能
 
@@ -44,7 +44,7 @@ bash scripts/build-firmware.sh esp32s3
 
 | 路径 | 内容 |
 | --- | --- |
-| `App/` | SwiftUI 页面、模型接口、任务执行、蓝牙和系统服务 |
+| `PhoneAgent/` | App 入口、ContentView、ViewModel；按页面、服务、存储和外观分目录 |
 | `Shared/` | 动作协议、校准、任务与工具数据模型 |
 | `Activity/` | 实时活动扩展 |
 | `Skills/` | 手机操控规则与 Apple 官方帮助索引；作为 App 资源打包 |

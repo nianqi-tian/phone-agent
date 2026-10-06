@@ -7,7 +7,7 @@ struct MemoryEditorSeed: Identifiable {
     var id: UUID { value.id }
 }
 struct MemoryEditor: View {
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @Environment(\.dismiss) private var dismiss
     @State var seed: MemoryEditorSeed
     @State private var keepImage = false
@@ -70,7 +70,7 @@ struct MemoryEditor: View {
 }
 
 struct MemoryView: View {
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @State private var exporting = false
     @State private var exportDocument: ArtifactDocument?
     @State private var query = ""

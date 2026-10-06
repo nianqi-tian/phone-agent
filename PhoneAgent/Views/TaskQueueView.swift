@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct TaskQueueView: View {
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var clear = false
     @State private var removing: UUID?

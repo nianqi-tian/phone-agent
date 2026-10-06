@@ -168,7 +168,7 @@ struct AssistantView: View {
     let newConversationRequest: UUID
     let reviewDictation: DictationPhase?
     let allowsDictation: Bool
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @Environment(\.scenePhase) private var phase
     let onModelSetup: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

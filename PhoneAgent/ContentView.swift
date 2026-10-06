@@ -1,80 +1,12 @@
 import SwiftUI
 
-private struct SidebarMainSurface: ViewModifier {
-    let open: Bool
-    @Environment(\.colorScheme) private var colorScheme
-    func body(content: Content) -> some View {
-        let edge = MainSurfaceLeadingEdge(radius: 32)
-        content
-            .mask {
-                UnevenRoundedRectangle(topLeadingRadius: open ? 32 : 0,
-                                       bottomLeadingRadius: open ? 32 : 0, style: .continuous)
-                    .ignoresSafeArea(.container, edges: .vertical)
-            }
-            .overlay {
-                if open {
-                    edge.stroke(AgentPalette.ink.opacity(colorScheme == .light ? 0.18 : 0.08),
-                                style: StrokeStyle(lineWidth: 0.75, lineCap: .round))
-                        .ignoresSafeArea(.container, edges: .vertical)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
-            }
-    }
-}
-
-private struct MainSurfaceLeadingEdge: Shape {
-    let radius: CGFloat
-    func path(in rect: CGRect) -> Path {
-        let r = min(radius, min(rect.width, rect.height / 2))
-        var path = Path()
-        path.move(to: CGPoint(x: r, y: 0))
-        path.addCurve(to: CGPoint(x: 0, y: r),
-                      control1: CGPoint(x: r * 0.46, y: 0),
-                      control2: CGPoint(x: 0, y: r * 0.46))
-        path.addLine(to: CGPoint(x: 0, y: rect.maxY - r))
-        path.addCurve(to: CGPoint(x: r, y: rect.maxY),
-                      control1: CGPoint(x: 0, y: rect.maxY - r * 0.46),
-                      control2: CGPoint(x: r * 0.46, y: rect.maxY))
-        return path
-    }
-}
-
-private enum WorkspaceSheet: Identifiable {
-    case task(UUID), plan, preparation, consent, policy, settings, tool(ToolApproval)
-    var id: String {
-        switch self {
-        case .task(let id): return id.uuidString
-        case .plan: return "plan"
-        case .preparation: return "preparation"
-        case .consent: return "consent"
-        case .policy: return "policy"
-        case .settings: return "settings"
-        case .tool(let value): return "tool:" + value.id.uuidString
-        }
-    }
-}
-private enum TaskScreen: Hashable {
-    case draft, conversation(UUID)
-}
-
-private enum ConversationEvent: Identifiable {
-    case activity(AgentLogEntry), amendment(TaskAmendment)
-    var id: UUID {
-        switch self { case .activity(let log): return log.id; case .amendment(let addition): return addition.id }
-    }
-    var date: Date {
-        switch self { case .activity(let log): return log.date; case .amendment(let addition): return addition.createdAt }
-    }
-}
-
-struct RootView: View {
-    @EnvironmentObject private var model: AppModel
+struct ContentView: View {
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @Environment(\.scenePhase) private var phase
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var typeSize
-    @State private var tab = 0
+    @State private var selectedDestination: WorkspaceDestination = .tasks
     @State private var navigationForward = true
     @State private var calibration: CalibrationModel?
     @State private var showCalibration = false
@@ -82,7 +14,7 @@ struct RootView: View {
     @State private var pendingSheet: WorkspaceSheet?
     @State private var dismissingSheet = false
     @State private var confirmingWorkbenchExit = false
-    @State private var pendingDestination: Int?
+    @State private var pendingDestination: WorkspaceDestination?
     @State private var pendingDestinationSheet: WorkspaceSheet?
     @State private var screen: TaskScreen = .draft
     @State private var sidebarOpen = false
@@ -109,37 +41,7 @@ struct RootView: View {
     private var sidebarScrimColor: Color {
         colorScheme == .light ? Color.white.opacity(0.4) : Color.black.opacity(0.4)
     }
-    private var busy: Bool { model.recordingAudioOwner != nil || model.queueSwitching || model.engine.running || model.engine.releasing || model.manualBusy || model.voicePending }
-    private var filteredTasks: [PhoneTaskRecord] {
-        guard !searchText.isEmpty else { return model.history.records }
-        return model.history.records.filter { $0.title.localizedCaseInsensitiveContains(searchText) || $0.effectiveGoal.localizedCaseInsensitiveContains(searchText) }
-    }
-    private var groupedHistory: [(title: String, records: [PhoneTaskRecord])] {
-        let calendar = Calendar.current
-        let now = Date()
-        let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: now) ?? now
-        var today: [PhoneTaskRecord] = []
-        var yesterday: [PhoneTaskRecord] = []
-        var pastWeek: [PhoneTaskRecord] = []
-        var older: [PhoneTaskRecord] = []
-        for record in filteredTasks {
-            if calendar.isDateInToday(record.createdAt) {
-                today.append(record)
-            } else if calendar.isDateInYesterday(record.createdAt) {
-                yesterday.append(record)
-            } else if record.createdAt >= sevenDaysAgo {
-                pastWeek.append(record)
-            } else {
-                older.append(record)
-            }
-        }
-        var sections: [(title: String, records: [PhoneTaskRecord])] = []
-        if !today.isEmpty { sections.append(("今天", today)) }
-        if !yesterday.isEmpty { sections.append(("昨天", yesterday)) }
-        if !pastWeek.isEmpty { sections.append(("过去 7 天", pastWeek)) }
-        if !older.isEmpty { sections.append(("更早", older)) }
-        return sections
-    }
+    private var busy: Bool { model.interactionBusy }
     private var displayedRecord: PhoneTaskRecord? {
         guard case .conversation(let id) = screen else { return nil }
         if model.engine.currentRecord?.id == id { return model.engine.currentRecord }
@@ -163,34 +65,38 @@ struct RootView: View {
     private var inputBlocked: Bool {
         model.recordingAudioOwner != nil || model.queueSwitching || model.calibrating || model.manualBusy || model.voicePending || model.engine.releasing
     }
-    init(reviewTab: Int = 0, reviewConversation: UUID? = nil, reviewVoice: DictationPhase? = nil, reviewVoiceError: String = "") {
-        _tab = State(initialValue: reviewTab)
+    init(reviewDestination: WorkspaceDestination = .tasks, reviewConversation: UUID? = nil, reviewVoice: DictationPhase? = nil, reviewVoiceError: String = "") {
+        _selectedDestination = State(initialValue: reviewDestination)
         _reviewVoicePhase = State(initialValue: reviewVoice)
         self.reviewVoiceError = reviewVoiceError
         _screen = State(initialValue: reviewConversation.map { .conversation($0) } ?? .draft)
     }
     var body: some View {
+        lifecycleWorkspace
+    }
+
+    private var workspace: some View {
         ZStack {
             // The shifted main page is the raised surface; the sidebar stays flat.
             (sidebarOpen ? AgentPalette.surface : AgentPalette.background)
                 .ignoresSafeArea().accessibilityHidden(true)
             Group {
-                switch tab {
-                case 1: capturePage
-                case 2: mousePage
-                case 3: SettingsView(onBack: { navigate(0) })
-                case 4: AssistantView(newConversationRequest: newAssistantRequest, reviewDictation: reviewVoicePhase, allowsDictation: sheet == nil && !sidebarOpen && !modeSwitcherOpen, onModelSetup: { navigate(3) })
-                case 5: MemoryView()
-                case 6: WorkbenchView()
-                case 7: TaskQueueView()
-                default: taskPage
+                switch selectedDestination {
+                case .screenShare: CaptureView()
+                case .device: DeviceView(onCalibration: beginCalibration)
+                case .settings: SettingsView(onBack: { navigate(.tasks) })
+                case .assistant: AssistantView(newConversationRequest: newAssistantRequest, reviewDictation: reviewVoicePhase, allowsDictation: sheet == nil && !sidebarOpen && !modeSwitcherOpen, onModelSetup: { navigate(.settings) })
+                case .memory: MemoryView()
+                case .workbench: WorkbenchView()
+                case .queue: TaskQueueView()
+                case .tasks: taskPage
                 }
-            }.id(tab).transition(pageTransition)
+            }.id(selectedDestination).transition(pageTransition)
         }
-        .animation(pageAnimation, value: tab).tint(AgentPalette.accent)
+        .animation(pageAnimation, value: selectedDestination).tint(AgentPalette.accent)
         .safeAreaBar(edge: .top, spacing: 0) {
             VStack(spacing: 0) {
-                if tab != 3 { topBar }
+                if selectedDestination != .settings { topBar }
                 AgentPiPPanel(controller: model.pip)
             }
         }
@@ -199,6 +105,10 @@ struct RootView: View {
         .offset(x: sidebarOpen && !reduceMotion ? max(0, sidebarWidth + sidebarDrag) : 0)
         .accessibilityHidden(sidebarOpen)
         .overlay { sidebarOverlay }
+    }
+
+    private var presentedWorkspace: some View {
+        workspace
         .sheet(item: $sheet, onDismiss: {
             dismissingSheet = false
             if let next = pendingSheet {
@@ -220,6 +130,10 @@ struct RootView: View {
         .fullScreenCover(isPresented: $showCalibration, onDismiss: { model.calibrating = false; model.cancelCalibration = nil }) {
             if let calibration { CalibrationView(model: calibration) }
         }
+    }
+
+    private var lifecycleWorkspace: some View {
+        presentedWorkspace
         .onAppear {
             if model.engine.hasCurrentTask, let record = model.engine.currentRecord { screen = .conversation(record.id) }
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) { appeared = true }
@@ -242,7 +156,7 @@ struct RootView: View {
         }
         .onChange(of: model.showPreparation) { _, show in if show { consumeModalRequests() } }
         .onChange(of: model.showPrivacyPolicy) { _, show in if show { consumeModalRequests() } }
-        .onChange(of: model.voiceRequestID) { _, _ in navigate(model.voiceMode == .question ? 4 : 0); setSidebar(false); composing = false }
+        .onChange(of: model.voiceRequestID) { _, _ in navigate(model.voiceMode == .question ? .assistant : .tasks); setSidebar(false); composing = false }
         .onChange(of: model.voiceMode) { _, mode in
             if let mode { routeInlineVoice(mode) }
         }
@@ -253,7 +167,7 @@ struct RootView: View {
                 if sheet?.id.hasPrefix("tool:") == true { dismissCurrentSheet() }
             }
         }
-        .onChange(of: model.showAssistant) { _, show in if show { model.showAssistant = false; navigate(4) } }
+        .onChange(of: model.showAssistant) { _, show in if show { model.showAssistant = false; navigate(.assistant) } }
         .onChange(of: model.settings.autoPiPOnExit) { _, value in
             configureAutomaticPiP(value ?? false)
         }
@@ -272,7 +186,7 @@ struct RootView: View {
             Button("继续编辑", role: .cancel) {}
         }
         .onReceive(NotificationCenter.default.publisher(for: AgentPiPController.restoreTask)) { _ in
-            if let record = model.engine.currentRecord { openConversation(record) } else { navigate(0) }
+            if let record = model.engine.currentRecord { openConversation(record) } else { navigate(.tasks) }
         }
         .onChange(of: phase) { _, new in
             if new == .active { model.ble.refresh() }
@@ -288,7 +202,7 @@ struct RootView: View {
     }
     private func routeInlineVoice(_ mode: VoiceInputMode) {
         composing = false; setSidebar(false)
-        navigate(mode == .question ? 4 : 0)
+        navigate(mode == .question ? .assistant : .tasks)
         if mode == .supplement, let record = model.engine.currentRecord {
             screen = .conversation(record.id)
         }
@@ -327,26 +241,26 @@ struct RootView: View {
             insertion: .opacity.combined(with: .offset(x: navigationForward ? 18 : -18)),
             removal: .opacity.combined(with: .offset(x: navigationForward ? -10 : 10)))
     }
-    private func navigate(_ destination: Int, showing route: WorkspaceSheet? = nil) {
+    private func navigate(_ destination: WorkspaceDestination, showing route: WorkspaceSheet? = nil) {
         setSidebar(false)
-        if destination == 3 { present(.settings); return }
-        guard destination != tab else { if let route { present(route) }; return }
-        if tab == 6 && model.workbenchHasDraft {
+        if destination == .settings { present(.settings); return }
+        guard destination != selectedDestination else { if let route { present(route) }; return }
+        if selectedDestination == .workbench && model.workbenchHasDraft {
             pendingDestination = destination; pendingDestinationSheet = route
             composing = false; confirmingWorkbenchExit = true; return
         }
         completeNavigation(destination, showing: route)
     }
-    private func completeNavigation(_ destination: Int, showing route: WorkspaceSheet? = nil) {
-        if (4...6).contains(destination) && (model.engine.running || model.voicePending) { model.pauseTask() }
-        navigationForward = destination != 0; tab = destination; composing = false
+    private func completeNavigation(_ destination: WorkspaceDestination, showing route: WorkspaceSheet? = nil) {
+        if destination.pausesTaskOnEntry && (model.engine.running || model.voicePending) { model.pauseTask() }
+        navigationForward = destination != .tasks; selectedDestination = destination; composing = false
         if let route { present(route) }
     }
-    private var isConversationMode: Bool { tab == 0 || tab == 4 }
+    private var isConversationMode: Bool { selectedDestination.isConversation }
     private var topBar: some View {
         HStack(spacing: 12) {
             Button {
-                if isConversationMode { composing = false; setSidebar(true) } else { navigate(0) }
+                if isConversationMode { composing = false; setSidebar(true) } else { navigate(.tasks) }
             } label: {
                 Image(systemName: isConversationMode ? "line.3.horizontal" : "chevron.left")
                     .font(.system(size: 19, weight: .medium)).frame(width: 44, height: 44)
@@ -356,7 +270,7 @@ struct RootView: View {
             if !isConversationMode { Text(pageTitle).font(.headline).lineLimit(1) }
             Spacer(minLength: 8)
             if !isConversationMode {
-                Button { navigate(3) } label: { Image(systemName: "gearshape").frame(width: 44, height: 44) }
+                Button { navigate(.settings) } label: { Image(systemName: "gearshape").frame(width: 44, height: 44) }
                     .tint(.primary).buttonStyle(AgentPressStyle()).accessibilityLabel("设置")
             }
         }
@@ -368,7 +282,7 @@ struct RootView: View {
     private var modeSwitcher: some View {
         Button { composing = false; modeSwitcherOpen.toggle() } label: {
             HStack(spacing: 6) {
-                Text(tab == 4 ? "问助手" : "操控手机").font(.headline).lineLimit(1).minimumScaleFactor(0.8)
+                Text(selectedDestination == .assistant ? "问助手" : "操控手机").font(.headline).lineLimit(1).minimumScaleFactor(0.8)
                 Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
                     .rotationEffect(.degrees(modeSwitcherOpen ? 180 : 0))
             }
@@ -378,18 +292,18 @@ struct RootView: View {
         }
         .tint(.primary).buttonStyle(AgentPressStyle())
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: modeSwitcherOpen)
-        .accessibilityLabel("切换模式，当前" + (tab == 4 ? "问助手" : "操控手机"))
+        .accessibilityLabel("切换模式，当前" + (selectedDestination == .assistant ? "问助手" : "操控手机"))
         .popover(isPresented: $modeSwitcherOpen, arrowEdge: .top) {
             VStack(spacing: 4) {
-                modeOption(title: "操控手机", detail: "执行任务与操控手机", icon: "computermouse", destination: 0)
-                modeOption(title: "问助手", detail: model.engine.running || model.voicePending ? "暂停任务，进入对话" : "提问与交流", icon: "bubble.left.and.bubble.right", destination: 4)
+                modeOption(title: "操控手机", detail: "执行任务与操控手机", icon: "computermouse", destination: .tasks)
+                modeOption(title: "问助手", detail: model.engine.running || model.voicePending ? "暂停任务，进入对话" : "提问与交流", icon: "bubble.left.and.bubble.right", destination: .assistant)
             }
             .padding(10).frame(width: min(320, max(240, viewportWidth - 40)))
             .presentationCompactAdaptation(.popover)
 
         }
     }
-    private func modeOption(title: String, detail: String, icon: String, destination: Int) -> some View {
+    private func modeOption(title: String, detail: String, icon: String, destination: WorkspaceDestination) -> some View {
         Button {
             modeSwitcherOpen = false
             navigate(destination)
@@ -401,25 +315,15 @@ struct RootView: View {
                     Text(detail).font(.subheadline).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
-                if tab == destination { Image(systemName: "checkmark").font(.system(size: 17, weight: .semibold)) }
+                if selectedDestination == destination { Image(systemName: "checkmark").font(.system(size: 17, weight: .semibold)) }
             }
             .foregroundStyle(.primary).padding(14).frame(maxWidth: .infinity, minHeight: 70, alignment: .leading)
-            .background(tab == destination ? AgentPalette.ink.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 16))
+            .background(selectedDestination == destination ? AgentPalette.ink.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 16))
             .contentShape(RoundedRectangle(cornerRadius: 16))
         }.buttonStyle(AgentPressStyle()).accessibilityLabel(title + "，" + detail)
-            .accessibilityAddTraits(tab == destination ? .isSelected : [])
+            .accessibilityAddTraits(selectedDestination == destination ? .isSelected : [])
     }
-    private var pageTitle: String {
-        switch tab {
-        case 1: return "屏幕共享"
-        case 2: return "设备"
-        case 4: return "问助手"
-        case 5: return "记忆"
-        case 6: return "记录与文件"
-        case 7: return "任务队列"
-        default: return "Phone Agent"
-        }
-    }
+    private var pageTitle: String { selectedDestination.title }
     private var taskPage: some View {
         VStack(spacing: 0) {
             if let active = model.engine.currentRecord, model.engine.hasCurrentTask, !isCurrentConversation {
@@ -799,7 +703,7 @@ struct RootView: View {
                 .accessibilityLabel(preparationExpanded ? "收起使用准备" : model.preparationReady ? "已就绪，查看使用准备" : "展开使用准备")
 
                 if model.taskQueue.pendingCount > 0 {
-                    Button { navigate(7) } label: {
+                    Button { navigate(.queue) } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "list.bullet").font(.system(size: 10))
                             Text("队列 \(model.taskQueue.pendingCount)").font(.caption2.weight(.medium))
@@ -848,8 +752,8 @@ struct RootView: View {
     private var textComposer: some View {
         HStack(alignment: .center, spacing: 8) {
             Menu {
-                Button { navigate(1) } label: { Label("共享屏幕", systemImage: "rectangle.on.rectangle") }
-                Button { navigate(2) } label: { Label("设备与校准", systemImage: "computermouse") }
+                Button { navigate(.screenShare) } label: { Label("共享屏幕", systemImage: "rectangle.on.rectangle") }
+                Button { navigate(.device) } label: { Label("设备与校准", systemImage: "computermouse") }
                 Button { present(.plan) } label: { Label("组合任务清单", systemImage: "list.number") }.disabled(busy || composingSupplement)
                 Button { model.pip.enabled ? model.pip.close() : model.pip.open() } label: { Label("动作画中画", systemImage: "pip.enter") }
             } label: {
@@ -953,13 +857,13 @@ struct RootView: View {
             }
             HStack(spacing: 10) {
                 if model.settings.toolsOnly == true {
-                    setupItem("模型", active: model.modelReady, icon: "sparkles") { navigate(3) }
-                    setupItem("授权", active: model.consentReady, icon: "hand.raised") { if model.modelReady { model.requestConsent() } else { navigate(3) } }
-                    setupItem("工具", active: model.settings.systemToolsEnabled == true, icon: "wrench") { navigate(3) }
+                    setupItem("模型", active: model.modelReady, icon: "sparkles") { navigate(.settings) }
+                    setupItem("授权", active: model.consentReady, icon: "hand.raised") { if model.modelReady { model.requestConsent() } else { navigate(.settings) } }
+                    setupItem("工具", active: model.settings.systemToolsEnabled == true, icon: "wrench") { navigate(.settings) }
                 } else {
-                    setupItem("画面", active: model.capture.frame?.fullDisplay == true && model.capture.running, icon: "rectangle.on.rectangle") { navigate(1) }
-                    setupItem("配件", active: model.ble.ready, icon: "computermouse") { navigate(2) }
-                    setupItem("校准", active: calibrated, icon: "scope") { navigate(2) }
+                    setupItem("画面", active: model.capture.frame?.fullDisplay == true && model.capture.running, icon: "rectangle.on.rectangle") { navigate(.screenShare) }
+                    setupItem("配件", active: model.ble.ready, icon: "computermouse") { navigate(.device) }
+                    setupItem("校准", active: calibrated, icon: "scope") { navigate(.device) }
                 }
             }.dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         }.padding(.horizontal, 6).padding(.bottom, 4)
@@ -993,198 +897,43 @@ struct RootView: View {
         }
     }
     private var sidebar: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Phone Agent").font(.title2.weight(.semibold))
-                Spacer()
-                Button {
-                    withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .snappy(duration: 0.22)) {
-                        sidebarSearchExpanded.toggle()
-                        if !sidebarSearchExpanded { searchText = "" }
-                    }
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 19, weight: .medium))
-                        .foregroundStyle(.primary)
-                        .frame(width: 48, height: 48)
-                        .agentGlass(in: Circle(), interactive: true)
-                }
-                .buttonStyle(AgentPressStyle())
-                .accessibilityLabel(sidebarSearchExpanded ? "收起搜索" : "搜索历史任务")
-            }
-            .padding(.horizontal, 20).padding(.top, 2).padding(.bottom, 6)
-
-            if sidebarSearchExpanded {
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 15))
-                        .foregroundStyle(.secondary)
-                    TextField("搜索历史任务", text: $searchText,
-                              prompt: Text("搜索历史任务").foregroundStyle(AgentPalette.placeholder))
-                        .font(.subheadline)
-                        .autocorrectionDisabled()
-                        .accessibilityLabel("搜索任务历史")
-                    if !searchText.isEmpty {
-                        Button { searchText = "" } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 14))
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("清空搜索")
-                    }
-                }
-                .padding(.horizontal, 14).frame(height: 42)
-                .agentGlass(in: Capsule(), interactive: true)
-                .padding(.horizontal, 16).padding(.vertical, 6)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
-                    if tab == 0, let record = displayedRecord {
-                        sidebarButton("任务详情与管理", icon: "checklist") { present(.task(record.id)) }
-                    }
-                    sidebarButton("任务队列", icon: "list.bullet", count: model.taskQueue.pendingCount) { navigate(7) }
-                    sidebarButton("设备与校准", icon: "computermouse") { navigate(2) }
-                    sidebarButton("屏幕共享", icon: "rectangle.on.rectangle") { navigate(1) }
-                    sidebarButton("记忆与上下文", icon: "bookmark") { navigate(5) }
-                    sidebarButton("记录与文件", icon: "doc.text") { navigate(6) }
-                    sidebarButton("使用准备", icon: "checklist") { setSidebar(false); present(.preparation) }
-
-                    if searchText.isEmpty {
-                        Text("最近")
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .padding(.horizontal, 16).padding(.top, 22).padding(.bottom, 4)
-                    }
-
-                    if !searchText.isEmpty || !model.history.records.isEmpty {
-                        if filteredTasks.isEmpty {
-                            Text("没有找到相关任务")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 16).padding(.vertical, 14)
-                        } else if !searchText.isEmpty {
-                            Text("搜索结果")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 4)
-                            ForEach(filteredTasks) { record in
-                                sidebarTaskRow(record)
-                            }
-                        } else {
-                            ForEach(groupedHistory, id: \.title) { group in
-                                Text(group.title)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.tertiary)
-                                    .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 4)
-                                ForEach(group.records) { record in
-                                    sidebarTaskRow(record)
-                                }
-                            }
-                        }
-                    } else if searchText.isEmpty {
-                        Text("任务会显示在这里")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 16).padding(.vertical, 10)
-                    }
-
-                    if !model.history.error.isEmpty {
-                        AgentNotice(text: model.history.error, error: true).padding(.horizontal, 14)
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 16)
-            }
-            .scrollDismissesKeyboard(.interactively)
-
-            GlassEffectContainer(spacing: 16) {
-                HStack(spacing: 16) {
-                    Button {
-                        if tab == 4 { setSidebar(false); newAssistantRequest = UUID() }
-                        else { requestNewTask() }
-                    } label: {
-                        Label("新建", systemImage: "square.and.pencil")
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 22).frame(minHeight: 40)
-                    }
-                    .buttonStyle(.glassProminent).buttonBorderShape(.capsule)
-                    .tint(AgentPalette.accent).foregroundStyle(.white)
-                    .disabled(model.voiceMode != nil)
-                    .accessibilityLabel("新建")
-                    Spacer(minLength: 8)
-                    Button { navigate(3) } label: {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 23, weight: .medium))
-                            .foregroundStyle(.primary).frame(width: 52, height: 52)
-                            .agentGlass(in: Circle(), interactive: true)
-                    }
-                    .buttonStyle(AgentPressStyle()).accessibilityLabel("Phone Agent 设置")
+        SidebarView(
+            selectedDestination: selectedDestination,
+            screen: screen,
+            displayedRecord: displayedRecord,
+            searchText: $searchText,
+            sidebarSearchExpanded: $sidebarSearchExpanded,
+            onNavigate: { navigate($0) },
+            onTaskDetail: { present(.task($0)) },
+            onPreparation: { setSidebar(false); present(.preparation) },
+            onOpenConversation: openConversation,
+            onNewConversation: {
+                if selectedDestination == .assistant {
+                    setSidebar(false)
+                    newAssistantRequest = UUID()
+                } else {
+                    requestNewTask()
                 }
             }
-            .padding(.leading, 40).padding(.trailing, 30).padding(.top, 10).padding(.bottom, 12)
-        }
-    }
-    private func sidebarTaskRow(_ record: PhoneTaskRecord) -> some View {
-        Button { openConversation(record) } label: {
-            HStack(spacing: 10) {
-                Image(systemName: record.outcome == .completed ? "checkmark.circle" : "bubble.left")
-                    .font(.system(size: 14))
-                    .foregroundStyle(record.outcome == .completed ? Color.green.opacity(0.8) : AgentPalette.ink.opacity(0.4))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(record.title)
-                        .font(.subheadline)
-                        .lineLimit(1)
-                        .multilineTextAlignment(.leading)
-                    Text(record.outcome.label)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer(minLength: 0)
-
-                if screen == .conversation(record.id) {
-                    Image(systemName: "checkmark")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.primary)
-                }
-            }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(screen == .conversation(record.id) ? AgentPalette.ink.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 14))
-        }
-        .buttonStyle(AgentPressStyle())
-    }
-    private func sidebarButton(_ title: String, icon: String, count: Int = 0, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: icon).font(.system(size: 18)).frame(width: 22)
-                Text(title).font(.subheadline.weight(.medium))
-                Spacer(minLength: 8)
-                if count > 0 { Text(String(count)).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
-            }.padding(.horizontal, 14).frame(minHeight: 50).contentShape(Rectangle())
-        }.buttonStyle(AgentPressStyle())
+        )
     }
     private func setSidebar(_ open: Bool) {
         withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(duration: open ? 0.28 : 0.20, bounce: 0)) { sidebarOpen = open }
     }
     private func openConversation(_ record: PhoneTaskRecord) {
         screen = .conversation(record.id); expandedSteps = false; followLatest = true
-        navigate(0); composing = false
+        navigate(.tasks); composing = false
     }
     private func requestNewTask() {
         setSidebar(false)
         if screen == .draft && !model.goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { discardingDraft = true }
         else {
             if model.goal == displayedRecord?.goal { model.goal = ""; model.removeTaskPlan() }
-            screen = .draft; model.notice = ""; navigate(0); composing = true
+            screen = .draft; model.notice = ""; navigate(.tasks); composing = true
         }
     }
     private func resetDraft() {
-        model.removeTaskPlan(); model.goal = ""; model.notice = ""; screen = .draft; navigate(0); composing = true
+        model.removeTaskPlan(); model.goal = ""; model.notice = ""; screen = .draft; navigate(.tasks); composing = true
     }
     private func reuseTask(_ record: PhoneTaskRecord) {
         // Keep an existing unsent task intact; reuse opens only an editable draft.
@@ -1193,164 +942,11 @@ struct RootView: View {
         } else { model.goal = record.effectiveGoal; screen = .draft }
         composing = true
     }
-    private var capturePage: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                AgentPageIntro(title: "共享手机画面", subtitle: "让助手看到当前屏幕。由你开启，随时结束。")
-                HStack {
-                    Circle().fill(model.capture.running ? Color.green : Color.secondary.opacity(0.4)).frame(width: 7, height: 7)
-                    Text(model.capture.state).font(.subheadline.weight(.medium))
-                    Spacer()
-                    if model.capture.running { Text("LIVE").font(.caption2.weight(.bold)).foregroundStyle(AgentPalette.accent) }
-                }
-                Group {
-                    if let frame = model.capture.frame {
-                        VStack(spacing: 12) {
-                            Image(uiImage: frame.image).resizable().scaledToFit().frame(maxHeight: 390)
-                                .clipShape(RoundedRectangle(cornerRadius: 18))
-                            HStack {
-                                Text("\(frame.sourceWidth) × \(frame.sourceHeight)")
-                                Spacer(); Text("\(model.capture.fps, specifier: "%.1f") FPS")
-                            }.font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                        }
-                    } else {
-                        VStack(spacing: 18) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 27).stroke(AgentPalette.accent.opacity(0.20), lineWidth: 2).frame(width: 126, height: 220)
-                                VStack(spacing: 14) {
-                                    Image(systemName: "viewfinder").font(.system(size: 39, weight: .ultraLight)).foregroundStyle(AgentPalette.accent)
-                                    Text("等待画面").font(.caption).foregroundStyle(.secondary)
-                                }
-                            }.padding(.vertical, 17)
-                            Text("通过系统选择器共享整屏").font(.subheadline.weight(.medium))
-                            Text("切换到其他 App 后，助手仍能观察当前画面。")
-                                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                        }.frame(maxWidth: .infinity)
-                    }
-                }.agentPanel()
-                if model.capture.running {
-                    Button("停止屏幕共享", role: .destructive) { model.stop(); model.capture.stop() }.buttonStyle(AgentButtonStyle(primary: false))
-                } else {
-                    Button { model.capture.start() } label: { Label("共享整屏", systemImage: "rectangle.on.rectangle") }
-                        .buttonStyle(AgentButtonStyle()).disabled(model.capture.waitingForPicker || busy)
-                }
-                if !model.capture.error.isEmpty { AgentNotice(text: model.capture.error, error: true) }
-                Text("开始任务后，画面会发送到你配置的模型。停止任务不会结束共享；受保护的内容可能显示为空白。")
-                    .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 3)
-            }.padding(20)
-        }
-    }
-    private var mousePage: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                AgentPageIntro(title: "连接 AgentMouse", subtitle: "配件负责点击与输入，校准后开始操控。")
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack(spacing: 15) {
-                        Image(systemName: "computermouse.fill").font(.system(size: 32)).foregroundStyle(AgentPalette.accent)
-                            .frame(width: 68, height: 68).background(AgentPalette.accent.opacity(0.075), in: RoundedRectangle(cornerRadius: 22))
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("AgentMouse").font(.title3.weight(.semibold))
-                            Text(model.ble.state).font(.footnote).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if model.ble.ready { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
-                    }
-                    if model.ble.connected {
-                        if model.ble.ready {
-                            Text(model.ble.bufferedMotionReady ? "鼠标移动已就绪" : "请升级配件固件")
-                                .font(.caption).foregroundStyle(.secondary)
-                            Label(model.ble.keyboardReady ? "蓝牙键盘已就绪" :
-                                (model.ble.status?.keyboardSupported == true ? "等待系统连接键盘" : "配件尚未支持键盘"),
-                                systemImage: "keyboard").font(.caption).foregroundStyle(.secondary)
-                        }
-                        HStack {
-                            Label(model.ble.ready ? "鼠标已就绪" : "连接中", systemImage: "circle.fill").font(.caption)
-                            Spacer()
-                            Button("刷新") { model.ble.refresh() }
-                            Button("断开", role: .destructive) { model.stop(); Task { await model.ble.release(); model.ble.disconnect() } }
-                        }.font(.caption)
-                    } else {
-                        Button(model.ble.scanning ? "停止查找" : "连接 AgentMouse") {
-                            if model.ble.scanning { model.ble.stopScan() } else { model.ble.scan() }
-                        }.buttonStyle(AgentButtonStyle()).disabled(busy)
-                        ForEach(model.ble.devices) { device in
-                            Button { model.ble.connect(device) } label: {
-                                HStack { Label(device.name, systemImage: "dot.radiowaves.left.and.right"); Spacer(); Image(systemName: "chevron.right").font(.caption) }
-                                    .font(.subheadline).frame(minHeight: 48)
-                            }.disabled(busy)
-                        }
-                    }
-                    if !model.ble.error.isEmpty { AgentNotice(text: model.ble.error, error: true) }
-                }.padding(20).background(AgentPalette.inset, in: RoundedRectangle(cornerRadius: 18))
-                if !model.ble.ready {
-                    DisclosureGroup("连接帮助") { VStack(alignment: .leading, spacing: 14) {
-                        AgentSectionTitle(title: "首次连接", subtitle: "系统配对与 App 连接分两步；首次完成后通常无需重复。")
-                        connectionStep(1, "在 iOS 中配对", "设置 → 辅助功能（或“无障碍”）→ 触控 → 辅助触控 → 设备 → 蓝牙设备，选择 AgentMouse。系统询问时点“配对”。")
-                        connectionStep(2, "回到 Phone Agent", "配对成功后返回此页，再点“连接 AgentMouse”。看到“鼠标已就绪”后再开始校准。")
-                        connectionStep(3, "连接超时", "确认配件有电且 iPhone 蓝牙已开启；刚配对后可关闭再开启辅助触控，然后回此页重试。")
-                        Link("查看 Apple 官方指针设备说明", destination: URL(string: "https://support.apple.com/zh-cn/111775")!)
-                            .font(.footnote.weight(.medium))
-                    }.padding(.top, 12) }.agentPanel()
-                }
-                VStack(alignment: .leading, spacing: 15) {
-                    AgentSectionTitle(title: "把每一次点击对准", subtitle: "首次使用或更改指针速度后，校准一次。")
-                    if let c = model.executor.calibration {
-                        HStack {
-                            Label(model.calibrationReady ? "当前配件已校准" : "需要校准当前配件", systemImage: "scope").foregroundStyle(AgentPalette.accent)
-                        }.font(.footnote)
-                        if model.calibrationReady { Text("最大误差 \(c.validationError, specifier: "%.1f") 点").font(.caption).foregroundStyle(.secondary) }
-                    }
-                    Button(model.calibrationReady ? "重新校准" : "开始校准") { beginCalibration() }.buttonStyle(AgentButtonStyle(primary: false)).disabled(!model.ble.ready || busy || model.executor.calibrationInProgress)
-                    DisclosureGroup("校准前的准备") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("保持竖屏，在 21 步校准过程中不要触碰屏幕。")
-                            Text("每次定位先回左上角，再斜向移动。建议关闭“吸附到项目”，并固定指针速度。")
-                            if let c = model.executor.calibration, model.calibrationReady, let rms = c.validationRMS, let drift = c.returnDrift {
-                                Text("最近校准：RMS \(rms, specifier: "%.1f") 点 · 往返漂移 \(drift, specifier: "%.1f") 点")
-                            }
-                        }.font(.footnote).foregroundStyle(.secondary).padding(.top, 12)
-                    }.font(.subheadline)
-                }.padding(20).background(AgentPalette.inset, in: RoundedRectangle(cornerRadius: 18))
-                VStack(alignment: .leading, spacing: 13) {
-                    DisclosureGroup("返回桌面：先验证辅助触控映射") {
-                    VStack(alignment: .leading, spacing: 14) {
-                    Toggle("我已验证中键可以回到主屏幕", isOn: Binding(
-                        get: { model.settings.homeButtonIsMapped(to: model.ble.selectedID) },
-                        set: { model.settings.homeMappedPeripheralID = $0 ? model.ble.selectedID : nil }
-                    )).tint(.green).disabled(busy || model.ble.selectedID == nil)
-                    Text("先在 iPhone 设置 → 辅助功能 → 触控 → 辅助触控 → 设备 → AgentMouse 中，把中键分配为“主屏幕”。手动按一次中键，确认确实回到桌面后，再开启上面的选项。每个配件需单独设置。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    Text("未开启时，助手会尝试点击画面上可见的辅助触控按钮，再观察菜单并点“主屏幕”；看不到菜单按钮时会停下来请你显示，不会反复盲按。")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    }.padding(.top, 14)
-                    }.font(.subheadline)
-                }.padding(20).background(AgentPalette.inset, in: RoundedRectangle(cornerRadius: 18))
-                if !model.notice.isEmpty { AgentNotice(text: model.notice) }
-
-            }.padding(20)
-        }
-    }
     private func beginCalibration() {
         let next = CalibrationModel(executor: model.executor)
         model.calibrating = true
         model.cancelCalibration = { [weak next] in next?.cancel() }
         next.onSaved = { model.objectWillChange.send() }
         calibration = next; showCalibration = true
-    }
-    private func connectionStep(_ number: Int, _ title: String, _ detail: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text("\(number)").font(.caption.weight(.semibold)).foregroundStyle(.primary)
-                .frame(width: 24, height: 24).background(AgentPalette.surface, in: Circle())
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.subheadline.weight(.semibold))
-                Text(detail).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-    private func pageHeading(_ title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.largeTitle.bold())
-            Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
-        }.padding(.top, 8).padding(.bottom, 3)
     }
 }

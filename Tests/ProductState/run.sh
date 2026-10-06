@@ -5,7 +5,7 @@ check_dir="$(mktemp -d "${TMPDIR:-/tmp}/phone-product-checks.XXXXXX")"
 trap 'rm -rf "$check_dir"' EXIT
 
 # Keep the production engine intact except for the platform image import.
-python3 - "$project_dir/App/AgentEngine.swift" "$check_dir/Engine.swift" <<'PY'
+python3 - "$project_dir/PhoneAgent/Services/AgentEngine.swift" "$check_dir/Engine.swift" <<'PY'
 from pathlib import Path
 import sys
 source = Path(sys.argv[1]).read_text()
@@ -17,8 +17,8 @@ xcrun swiftc -module-cache-path "$check_dir/module-cache" -parse-as-library \
   "$project_dir/Shared/AgentModels.swift" \
   "$project_dir/Shared/MouseProtocol.swift" \
   "$project_dir/Shared/VoiceCommand.swift" \
-  "$project_dir/App/TaskHistoryStore.swift" \
-  "$project_dir/App/PrivacyConsent.swift" \
+  "$project_dir/PhoneAgent/Stores/TaskHistoryStore.swift" \
+  "$project_dir/PhoneAgent/Services/PrivacyConsent.swift" \
   "$project_dir/Tests/ProductState/Environment.swift" \
   "$check_dir/Engine.swift" \
   "$project_dir/Tests/ProductState/main.swift" \

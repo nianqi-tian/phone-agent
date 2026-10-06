@@ -3,8 +3,8 @@ import Combine
 import UIKit
 
 @MainActor
-final class AppModel: ObservableObject {
-    static let shared = AppModel()
+final class PhoneAgentViewModel: ObservableObject {
+    static let shared = PhoneAgentViewModel()
     @Published var goal = UserDefaults.standard.string(forKey: "agent.currentGoal") ?? "" {
         didSet {
             UserDefaults.standard.set(goal, forKey: "agent.currentGoal")
@@ -63,6 +63,10 @@ final class AppModel: ObservableObject {
     let camera = CameraService()
     let liveCamera = LiveCameraObserver()
     let taskActivity = TaskActivityController()
+    var interactionBusy: Bool {
+        recordingAudioOwner != nil || queueSwitching || engine.running || engine.releasing || manualBusy || voicePending
+    }
+
     var consentReady: Bool { PrivacyConsent.allowed(settings) }
     var calibrationReady: Bool {
         guard let c = executor.calibration else { return false }
@@ -408,7 +412,7 @@ final class AppModel: ObservableObject {
     }
 }
 
-extension AppModel {
+extension PhoneAgentViewModel {
     private func queuedSnapshot() -> QueuedPhoneTask? {
         guard engine.hasCurrentTask, let record = engine.currentRecord, let settings = engine.currentSettings else { return nil }
         return QueuedPhoneTask(record: record, settings: settings, step: engine.currentStep, started: true,

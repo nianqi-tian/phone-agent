@@ -7,7 +7,7 @@ private enum RecordingNavigation { case close, choose(UUID), library, startRecor
 struct RecordingsView: View {
     @ObservedObject var store: RecordingStore
     let onUseText: (RecordingTextSeed) -> Void
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @Environment(\.scenePhase) private var phase
     @Environment(\.dismiss) private var dismiss
     @StateObject private var audio = RecordingAudioController()

@@ -192,7 +192,7 @@ final class SystemTools: ObservableObject {
 }
 
 struct ToolApprovalView: View {
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     let approval: ToolApproval
     var body: some View {
         NavigationStack {

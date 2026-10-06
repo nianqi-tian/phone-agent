@@ -1,30 +1,10 @@
 import SwiftUI
-import AppIntents
-
-@main
-struct PhoneAgentApp: App {
-    @StateObject private var model = AppModel.shared
-    init() { PhoneAgentShortcuts.updateAppShortcutParameters() }
-    var body: some Scene {
-        WindowGroup {
-            Group {
-                #if DEBUG
-                if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "--ui-page"), ProcessInfo.processInfo.arguments.indices.contains(index + 1) {
-                    PhoneAgentReviewPage(name: ProcessInfo.processInfo.arguments[index + 1])
-                } else { RootView() }
-                #else
-                RootView()
-                #endif
-            }.environmentObject(model).agentTheme()
-        }
-    }
-}
 
 #if DEBUG
 // Visual-only launch routes. Never start hardware, permissions, or network work.
-private struct PhoneAgentReviewPage: View {
+struct PhoneAgentReviewPage: View {
     let name: String
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     private var recording: LocalRecording {
         model.recordings.records.first ?? .init(id: UUID(), title: "产品讨论", createdAt: Date(), updatedAt: Date(), duration: 180, interrupted: false)
     }
@@ -43,18 +23,18 @@ private struct PhoneAgentReviewPage: View {
         switch name {
         case "settings": SettingsView(onBack: {})
         case "task": TaskDetailView(id: model.history.records.first?.id ?? UUID())
-        case "conversation": RootView(reviewConversation: model.history.records.first?.id)
-        case "device": RootView(reviewTab: 2)
-        case "share": RootView(reviewTab: 1)
-        case "assistant": RootView(reviewTab: 4)
-        case "memory": RootView(reviewTab: 5)
-        case "workbench": RootView(reviewTab: 6)
-        case "queue": RootView(reviewTab: 7)
-        case "voice", "voice-listening": RootView(reviewVoice: .listening)
-        case "voice-preparing": RootView(reviewVoice: .preparing)
-        case "voice-finalizing": RootView(reviewVoice: .finalizing)
-        case "voice-error": RootView(reviewVoice: .idle, reviewVoiceError: "语音识别中断，已保留识别文字")
-        case "assistant-voice": RootView(reviewTab: 4, reviewVoice: .listening)
+        case "conversation": ContentView(reviewConversation: model.history.records.first?.id)
+        case "device": ContentView(reviewDestination: .device)
+        case "share": ContentView(reviewDestination: .screenShare)
+        case "assistant": ContentView(reviewDestination: .assistant)
+        case "memory": ContentView(reviewDestination: .memory)
+        case "workbench": ContentView(reviewDestination: .workbench)
+        case "queue": ContentView(reviewDestination: .queue)
+        case "voice", "voice-listening": ContentView(reviewVoice: .listening)
+        case "voice-preparing": ContentView(reviewVoice: .preparing)
+        case "voice-finalizing": ContentView(reviewVoice: .finalizing)
+        case "voice-error": ContentView(reviewVoice: .idle, reviewVoiceError: "语音识别中断，已保留识别文字")
+        case "assistant-voice": ContentView(reviewDestination: .assistant, reviewVoice: .listening)
         case "memory-editor": MemoryEditor(seed: .init(value: .init(title: "我的偏好", text: "请优先使用简短、清晰的中文回复。")))
         case "realtime": RealtimeView()
         case "recordings": RecordingsView(store: model.recordings) { _ in }
@@ -73,7 +53,7 @@ private struct PhoneAgentReviewPage: View {
         case "calibration": CalibrationView(model: .init(executor: model.executor))
         default:
             if name.hasPrefix("settings-") { SettingsView(reviewPage: String(name.dropFirst(9)), onBack: {}) }
-            else { RootView() }
+            else { ContentView() }
         }
     }
 }

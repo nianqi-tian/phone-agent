@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 
 private struct RealtimeApproval: Identifiable { let id = UUID(); let settings: RealtimeSettings; let camera: Bool }
 struct RealtimeView: View {
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @Environment(\.scenePhase) private var phase
     @Environment(\.dismiss) private var dismiss
     private enum Field: Hashable { case provider, endpoint, model, voice, key }

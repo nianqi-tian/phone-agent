@@ -10,7 +10,7 @@ private struct InvestigationApproval: Identifiable {
 }
 struct WebInvestigationView: View {
     let initialQuestion: String
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @Environment(\.scenePhase) private var phase
     @Environment(\.dismiss) private var dismiss
     @FocusState private var questionFocused: Bool

@@ -10,7 +10,7 @@ struct StartCurrentPhoneTaskIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let message = AppModel.shared.requestVoiceTask(AppModel.shared.goal)
+        let message = PhoneAgentViewModel.shared.requestVoiceTask(PhoneAgentViewModel.shared.goal)
         return .result(dialog: "\(message)")
     }
 }
@@ -29,7 +29,7 @@ struct RunPhoneTaskIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let message = AppModel.shared.requestVoiceTask(task)
+        let message = PhoneAgentViewModel.shared.requestVoiceTask(task)
         return .result(dialog: "\(message)")
     }
 }
@@ -43,9 +43,9 @@ struct StopPhoneTaskIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        AppModel.shared.stop()
-        AppModel.shared.notice = "已通过 Siri 停止任务"
-        AppModel.shared.voiceRequestID = UUID()
+        PhoneAgentViewModel.shared.stop()
+        PhoneAgentViewModel.shared.notice = "已通过 Siri 停止任务"
+        PhoneAgentViewModel.shared.voiceRequestID = UUID()
         return .result(dialog: "已停止任务并取消待执行请求。")
     }
 }
@@ -57,7 +57,7 @@ struct PausePhoneTaskIntent: AppIntent {
     static let allowedExecutionTargets: IntentExecutionTargets = [.main]
     static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
-        let message = AppModel.shared.pauseTask()
+        let message = PhoneAgentViewModel.shared.pauseTask()
         return .result(dialog: "\(message)")
     }
 }
@@ -69,7 +69,7 @@ struct HandoffPhoneTaskIntent: AppIntent {
     static let allowedExecutionTargets: IntentExecutionTargets = [.main]
     static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
-        let message = AppModel.shared.pauseTask(handoff: true)
+        let message = PhoneAgentViewModel.shared.pauseTask(handoff: true)
         return .result(dialog: "\(message)")
     }
 }
@@ -81,7 +81,7 @@ struct ResumePhoneTaskIntent: AppIntent {
     static let allowedExecutionTargets: IntentExecutionTargets = [.main]
     static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
-        let message = await AppModel.shared.resumeVoiceTask()
+        let message = await PhoneAgentViewModel.shared.resumeVoiceTask()
         return .result(dialog: "\(message)")
     }
 }
@@ -93,7 +93,7 @@ struct BeginTaskSupplementIntent: AppIntent {
     static let allowedExecutionTargets: IntentExecutionTargets = [.main]
     static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
-        let message = AppModel.shared.beginVoice(.supplement)
+        let message = PhoneAgentViewModel.shared.beginVoice(.supplement)
         return .result(dialog: "\(message)")
     }
 }
@@ -107,7 +107,7 @@ struct AmendPhoneTaskIntent: AppIntent {
     @Parameter(title: "补充要求", requestValueDialog: "你想补充什么要求？") var text: String
     static var parameterSummary: some ParameterSummary { Summary("加入补充 \(\.$text)") }
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
-        let message = AppModel.shared.supplementTask(text)
+        let message = PhoneAgentViewModel.shared.supplementTask(text)
         return .result(dialog: "\(message)")
     }
 }
@@ -119,7 +119,7 @@ struct ListenPhoneTaskIntent: AppIntent {
     static let allowedExecutionTargets: IntentExecutionTargets = [.main]
     static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
-        let model = AppModel.shared
+        let model = PhoneAgentViewModel.shared
         let message = model.beginVoice(model.engine.hasCurrentTask ? .supplement : .task)
         return .result(dialog: "\(message)")
     }
@@ -136,7 +136,7 @@ struct QueuePhoneTaskIntent: AppIntent {
     @Parameter(title: "任务", requestValueDialog: "要加入哪项任务？") var task: String
     static var parameterSummary: some ParameterSummary { Summary("将 \(\.$task) 加入手机任务队列") }
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
-        let message = AppModel.shared.requestQueuedVoiceTask(task, priority: false)
+        let message = PhoneAgentViewModel.shared.requestQueuedVoiceTask(task, priority: false)
         return .result(dialog: "\(message)")
     }
 }
@@ -149,7 +149,7 @@ struct PrioritizePhoneTaskIntent: AppIntent {
     @Parameter(title: "任务", requestValueDialog: "要优先做什么？") var task: String
     static var parameterSummary: some ParameterSummary { Summary("优先执行 \(\.$task)") }
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
-        let message = AppModel.shared.requestQueuedVoiceTask(task, priority: true)
+        let message = PhoneAgentViewModel.shared.requestQueuedVoiceTask(task, priority: true)
         return .result(dialog: "\(message)")
     }
 }
@@ -160,7 +160,7 @@ struct RunPhoneQueueIntent: AppIntent {
     static let allowedExecutionTargets: IntentExecutionTargets = [.main]
     static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
-        let model = AppModel.shared
+        let model = PhoneAgentViewModel.shared
         guard model.taskQueue.pendingCount > 0 else { return .result(dialog: "队列没有待处理任务。") }
         model.runTaskQueue(); model.voiceRequestID = UUID()
         let message = model.queueStatus

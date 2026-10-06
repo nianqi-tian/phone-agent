@@ -26,7 +26,7 @@ xcodebuild -project PhoneAgent.xcodeproj -scheme PhoneAgent \
 
 编译成功只确认源码与资源打包，不代表真机权限、Siri、BLE/HID、跨 App 执行或后台行为已通过验证。Build 67 的侧栏文案曾在模拟器的两种模式确认，底部均显示“新建”。
 
-## 本次仓库整理
+## 初次仓库整理（结构重构前）
 
 生产 Swift/C 源码取自 Build 67；导出的 Xcode 工程清除开发者 Team，生成文件和私人配置被排除。主项目包中的历史说明与旧固件镜像保留在原工作目录，未加入源码仓库。
 
@@ -44,3 +44,7 @@ xcodebuild -project PhoneAgent.xcodeproj -scheme PhoneAgent \
 | 常见密钥格式和本机绝对路径检查 | 未发现匹配 |
 
 以上共 127 项已有离线检查；本次整理不涉及真机安装、固件烧录或真实模型调用。
+
+## GestaltEdit 结构参考
+
+2026-10-06：App 源码目录改为 `PhoneAgent/`，拆出页面、服务、Store、外观和 Debug 预览，工程改为 Xcode 同步文件夹。已有离线检查入口已同步源码路径；本次未重新运行测试。上表的 127 项结果属于结构重构前。Xcode 27 的 Debug 与 Release 通用 iOS 模拟器无签名编译均通过，构建日志未出现警告或错误；打包目录保留两套内置 Skill 及引用资源。此结果仅确认编译和打包。

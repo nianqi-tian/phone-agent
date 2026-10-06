@@ -96,7 +96,7 @@ private struct PageReadTarget: Identifiable {
 }
 
 struct WebSearchView: View {
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @Environment(\.scenePhase) private var phase
     @Environment(\.dismiss) private var dismiss
     @State private var config = WebSearchStore.load()

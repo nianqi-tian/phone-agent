@@ -13,7 +13,7 @@ struct SpeakerView: View {
     let record: LocalRecording
     @ObservedObject var store: RecordingStore
     let onUseText: (RecordingTextSeed) -> Void
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @StateObject private var audition = RecordingAudioController()
     @Environment(\.scenePhase) private var phase
     @Environment(\.dismiss) private var dismiss

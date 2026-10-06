@@ -3,7 +3,7 @@ import SwiftUI
 struct DataConsentView: View {
     let onDecision: () -> Void
     @State private var showPolicy = false
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -47,7 +47,7 @@ struct DataConsentView: View {
 
 struct DataPolicyView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     var body: some View {
         NavigationStack {
             ScrollView {

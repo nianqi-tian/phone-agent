@@ -44,7 +44,7 @@ private enum TextImport {
 }
 
 struct WorkbenchView: View {
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @Environment(\.scenePhase) private var phase
     @State private var title = "我的记录"
     @State private var source = ""

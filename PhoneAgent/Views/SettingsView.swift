@@ -9,7 +9,7 @@ private enum SettingsPage: String, Hashable {
 }
 
 struct SettingsView: View {
-    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var model: PhoneAgentViewModel
     @Environment(\.dynamicTypeSize) private var typeSize
     @AppStorage(AgentTheme.storageKey) private var appearance = AgentTheme.system.rawValue
     var reviewPage: String? = nil

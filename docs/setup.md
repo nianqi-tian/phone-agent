@@ -7,7 +7,9 @@
 3. 默认 Bundle ID 为 `dev.agentmouse.controller` 和 `dev.agentmouse.controller.activity`。如需修改，保持扩展 ID 以 App ID 为前缀。
 4. 选择 iOS 27 模拟器或解锁后的 iPhone，编译运行。模拟器不需要真机签名。
 
-Debug 与 Release 使用各自的 Info.plist；两者均保留项目所需的蓝牙、屏幕共享和音频后台声明。是否真的能后台运行仍由系统控制。
+`PhoneAgent/Resources` 中的 Debug 与 Release 使用各自的 Info.plist；两者均保留项目所需的蓝牙、屏幕共享和音频后台声明。是否真的能后台运行仍由系统控制。
+
+工程使用 Xcode 同步文件夹。新增 App 文件放入 `PhoneAgent/` 的对应子目录；跨 Target 数据类型放入 `Shared/`。详见 [源码结构](architecture.md)。
 
 ## 配置模型
 
