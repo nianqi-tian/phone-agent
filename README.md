@@ -14,6 +14,7 @@
 </p>
 
 <a href="https://github.com/boboabw/phone-agent/archive/refs/heads/main.zip"><b>Download Source</b></a> ·
+<a href="#demo">Demo</a> ·
 <a href="#requirements">Requirements</a> ·
 <a href="#install">Install</a> ·
 <a href="docs/firmware.md">Flash Firmware</a>
@@ -24,6 +25,33 @@ Phone Agent is a native iPhone AI assistant. It understands the screen you choos
 
 > [!NOTE]
 > This project currently provides development source code. Build and install the app with Xcode. Phone control requires an ESP32-S3 accessory, pointer calibration, full screen sharing, and a model that accepts images.
+
+## Demo
+
+Ask Phone Agent to open Meituan and find a Mixue lemon drink. These GIFs show each stage of the same iPhone recording at its original speed, with the action window visible during execution.
+
+[Watch the full demo (MP4)](docs/demo/full-demo.mp4)
+
+<table>
+  <tr>
+    <td align="center"><strong>1. Start a task</strong><br><br><img src="docs/demo/01-start-task.gif" alt="Phone Agent begins a natural language task after a countdown" width="240"><br><sub>Describe what you want to do.</sub></td>
+    <td align="center"><strong>2. Open AssistiveTouch</strong><br><br><img src="docs/demo/02-open-assistivetouch.gif" alt="The pointer opens the AssistiveTouch menu" width="240"><br><sub>Open the system navigation menu.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>3. Return Home</strong><br><br><img src="docs/demo/03-return-home.gif" alt="Phone Agent uses AssistiveTouch to return to the iPhone Home Screen" width="240"><br><sub>Return to the Home Screen.</sub></td>
+    <td align="center"><strong>4. Open Meituan</strong><br><br><img src="docs/demo/04-open-meituan.gif" alt="The pointer selects Meituan and opens the app" width="240"><br><sub>Find and launch the target app.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>5. Find drink deals</strong><br><br><img src="docs/demo/05-find-drink-deals.gif" alt="Phone Agent opens the drink promotion listing in Meituan" width="240"><br><sub>Navigate to the relevant offers.</sub></td>
+    <td align="center"><strong>6. Inspect the results</strong><br><br><img src="docs/demo/06-inspect-results.gif" alt="Phone Agent observes the available drink offers" width="240"><br><sub>Observe the screen before the next action.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>7. Select the lemon drink</strong><br><br><img src="docs/demo/07-select-lemon-drink.gif" alt="The pointer selects the lemon drink offer and opens order review" width="240"><br><sub>Open the matching offer.</sub></td>
+    <td align="center"><strong>8. Review the order</strong><br><br><img src="docs/demo/08-review-order.gif" alt="The order review page displays the selected lemon drink" width="240"><br><sub>View the item and price before payment.</sub></td>
+  </tr>
+</table>
+
+The recording ends at order review, before payment. Location and account balance are blurred; the published clips are silent.
 
 ## Features
 
