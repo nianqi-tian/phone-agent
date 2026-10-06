@@ -1,71 +1,86 @@
+<div align="center">
+
+<img src="docs/icon.png" alt="Phone Agent 应用图标" width="128" height="128">
+
 # Phone Agent
 
-原生 iPhone AI 助手，配合 ESP32-S3 蓝牙鼠标与键盘配件，根据共享画面执行手机任务。当前源码版本：**1.0 / Build 67**。Swift 工程已按 GestaltEdit 的职责划分与同步文件夹方式整理，详见 [源码结构](docs/architecture.md)。
+**让 AI 看懂屏幕，操作你的 iPhone**
+
+<p>
+  <img src="https://img.shields.io/badge/iOS-27-000000?style=flat-square&logo=apple&logoColor=white" alt="iOS 27">
+  <img src="https://img.shields.io/badge/SwiftUI-Liquid%20Glass-007AFF?style=flat-square&logo=swift&logoColor=white" alt="SwiftUI Liquid Glass">
+  <img src="https://img.shields.io/badge/ESP32-S3-007AFF?style=flat-square" alt="ESP32-S3">
+  <img src="https://img.shields.io/badge/build-67-007AFF?style=flat-square" alt="Build 67">
+</p>
+
+<a href="https://github.com/boboabw/phone-agent/archive/refs/heads/main.zip"><b>下载源码</b></a> ·
+<a href="#使用要求">使用要求</a> ·
+<a href="#安装与配置">安装与配置</a> ·
+<a href="docs/firmware.md">固件烧录</a>
+
+</div>
+
+Phone Agent 是原生 iPhone AI 助手。通过你授权的屏幕共享理解当前画面，再用 ESP32-S3 蓝牙鼠标与键盘配件执行点击、移动和输入。
+
+> [!NOTE]
+> 当前提供开发版源码，需使用 Xcode 自行编译安装。手机操控需要 ESP32-S3 配件、指针校准、整屏共享和支持图像输入的模型。
 
 ## 功能
 
-- **操控手机**：观察共享画面、生成并校验动作、通过 BLE 配件执行、重新观察结果；支持暂停、停止、接管、补充和任务队列。
-- **问助手**：文字、听写、画面与相机提问，提供单独配置的实时语音入口。
-- **配件**：鼠标、ASCII 键盘与快捷键，21 步指针校准；每个新目标先回到左上角，再沿直线移动。
-- **工具**：联网检索、记忆、文件与录音管理、会议纪要、鱼骨图和表格。
-- **系统集成**：Siri / 快捷指令、实时活动和动作画中画；实际可用性由系统权限、设备和运行状态决定。
-- **界面**：SwiftUI Liquid Glass、浅色／深色外观，侧栏功能直接排列；两种模式的底部按钮均显示“新建”。
+**操控手机** — 观察画面、生成动作、执行后再次观察。支持任务队列，以及暂停、停止、接管和补充任务。
 
-## 快速开始
+**问助手** — 文字、听写、屏幕与相机提问，提供可独立配置的实时语音对话。
 
-环境：**Xcode 27、iOS 27 SDK、ESP-IDF 5.5.4**。真机签名需选择自己的 Apple Developer Team。
+**资料与工具** — 联网检索、记忆、文件和录音管理，生成会议纪要、鱼骨图与表格。
 
-```sh
-git clone https://github.com/boboabw/phone-agent.git
-cd phone-agent
-open PhoneAgent.xcodeproj
-```
+**系统集成** — Siri 与快捷指令、实时活动和动作画中画。使用 SwiftUI Liquid Glass，支持浅色和深色外观。
 
-模拟器编译：
+**蓝牙配件** — 鼠标、ASCII 键盘和快捷键，21 步精细校准。GPIO48 RGB 显示连接与任务状态：蓝色未连接、白色空闲、彩虹执行、红色失败、绿色完成。
 
-```sh
-xcodebuild -project PhoneAgent.xcodeproj -scheme PhoneAgent \
-  -configuration Debug -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO build
-```
+## 使用要求
 
-在已配置 ESP-IDF 的终端编译配件：
+- 运行 iOS 27 的 iPhone。
+- ESP32-S3 开发板与数据 USB 线；默认固件配置为 4 MB Flash，RGB 使用 GPIO48 上的 WS2812。
+- 支持图像输入的 OpenAI 兼容模型接口，以及自己的 API Key。
+- 开启辅助触控，并完成配件配对、指针校准和屏幕共享。
+- 编译 App 需要 Mac 和 Xcode 27；真机安装时为两个 Target 设置自己的签名 Team。
+- 编译固件需要 ESP-IDF 5.5.4。
 
-```sh
-bash scripts/build-firmware.sh
-```
+## 安装与配置
 
-在 App 设置中填写服务商的完整 **HTTPS Chat Completions URL**、模型 ID 和自己的 API Key。屏幕操控需要支持图像输入的模型。API Key 由 App 保存在 iPhone 钥匙串中。
+1. 克隆源码，用 Xcode 打开工程：
 
-详细步骤见 [配置与运行](docs/setup.md)、[固件与烧录](docs/firmware.md)。
+   ```sh
+   git clone https://github.com/boboabw/phone-agent.git
+   cd phone-agent
+   open PhoneAgent.xcodeproj
+   ```
 
-## 目录
+2. 为 `PhoneAgent` 和 `PhoneAgentActivity` 两个 Target 选择自己的 Team，选择 iPhone 后编译运行。
+3. 在已启用 ESP-IDF 的终端执行 `bash scripts/build-firmware.sh`，按[固件说明](docs/firmware.md)烧录 ESP32-S3。
+4. 在 App 的“模型连接”中填写服务商、完整 HTTPS 接口地址、模型 ID 和 API Key，确认数据使用授权。
+5. 在系统辅助触控中配对 `AgentMouse-S3`，回到 App 连接并完成 21 步校准。开启整屏共享后，输入任务开始执行。
 
-| 路径 | 内容 |
-| --- | --- |
-| `PhoneAgent/` | App 入口、ContentView、ViewModel；按页面、服务、存储和外观分目录 |
-| `Shared/` | 动作协议、校准、任务与工具数据模型 |
-| `Activity/` | 实时活动扩展 |
-| `Skills/` | 手机操控规则与 Apple 官方帮助索引；作为 App 资源打包 |
-| `firmware/` | NimBLE HID 与控制服务、鼠标轨迹、键盘及 RGB 状态灯 |
-| `Tests/` | 已有离线协议、产品状态和 Skill 打包检查 |
-| `scripts/` | 检查与 ESP32-S3 固件构建入口 |
-| `docs/` | 使用、架构、固件和验证说明 |
+完整步骤见[配置与运行](docs/setup.md)。
 
-## 检查
+## 界面
 
-```sh
-bash scripts/check.sh
-# 已编译 App 时，另检查内置 Skill 资源：
-bash scripts/check.sh build/ios/Build/Products/Debug-iphonesimulator/PhoneAgent.app
-```
+<div align="center">
 
-这些检查不需要手机、模型接口或 BLE。检查范围和结果见 [验证说明](docs/verification.md)。
+<img src="docs/images/sidebar-light.jpg" alt="Phone Agent 浅色侧栏" width="300">
 
-## 运行边界
+</div>
 
-App 使用用户授权的整屏共享和辅助触控 HID；系统共享选择器、权限和解锁由用户完成。模拟器可查看界面与部分状态流程，不能代替 BLE、Siri、相机、画中画和跨 App 执行的真机验证。iOS 暂停或结束进程后，不能保证持续后台执行或常驻语音唤醒。
+## 数据与运行说明
 
-模型与检索请求发送到用户配置和授权的服务商；不要将 API Key、证书、配对备份或手机数据提交到 Git。仓库只包含源码、图标和一张当前界面预览。
+API Key 保存在 iPhone 钥匙串中。任务、记忆、录音和文件保存在本机；共享画面、任务文字和相关上下文会按对应授权发送到你配置的模型服务。
 
-<img src="docs/images/sidebar-light.jpg" alt="Build 67 浅色侧栏，底部统一显示新建" width="300">
+语音、Siri、画中画、BLE 和跨 App 执行需要真机验证。后台运行受 iOS 调度限制，持续常驻语音唤醒尚未实现。当前编译与离线检查记录见[验证说明](docs/verification.md)。
+
+## 开发文档
+
+[源码结构](docs/architecture.md) · [固件与协议](docs/firmware.md) · [配置与运行](docs/setup.md) · [检查与构建记录](docs/verification.md)
+
+## 参考
+
+[GestaltEdit](https://github.com/frs0n/GestaltEdit) — Swift 项目组织与 README 布局参考。
