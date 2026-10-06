@@ -63,6 +63,56 @@ Phone Agent is a native iPhone AI assistant. It understands the screen you choos
 
 See [Setup and Usage](docs/setup.md) for detailed instructions.
 
+## Project Structure
+
+The Swift app separates its entry point, interface, coordination, services, and local storage. Shared models and the Live Activity extension live alongside the app; ESP32-S3 firmware has its own ESP-IDF project.
+
+```text
+phone-agent/
+├── PhoneAgent.xcodeproj/          # App and Live Activity targets
+├── PhoneAgent/
+│   ├── PhoneAgentApp.swift        # App entry point and shared state
+│   ├── ContentView.swift         # Main workspace and navigation
+│   ├── PhoneAgentViewModel.swift # Task and interaction coordination
+│   ├── Models/                   # Workspace and navigation types
+│   ├── Views/                    # SwiftUI screens and components
+│   ├── Services/                 # Capture, AI, BLE, voice, and tools
+│   ├── Stores/                   # Settings and local persistence
+│   ├── Appearance/               # Theme, glass surfaces, and motion
+│   ├── Resources/                # Assets, strings, and privacy metadata
+│   └── Debug/                    # Development review screens
+├── Shared/                       # Data models and accessory protocol
+├── Activity/                     # Live Activity and Dynamic Island UI
+├── Skills/                       # Bundled phone control instructions
+├── firmware/                     # ESP32-S3 BLE HID and GPIO48 RGB
+├── scripts/                      # Firmware build and check entry points
+├── Tests/                        # Existing offline checks
+└── docs/                         # Setup, architecture, and build records
+```
+
+### Module Responsibilities
+
+| Area | Responsibility |
+| --- | --- |
+| App and coordination | `PhoneAgentApp` creates shared state. `ContentView` presents the workspace. `PhoneAgentViewModel` connects user input, task execution, queue state, and services. |
+| Views and appearance | SwiftUI pages present state and route user actions to the coordinator or services. `Appearance` centralizes light and dark themes, glass surfaces, and transitions. |
+| Phone control | `AgentEngine` coordinates `CaptureService`, `VisionClient`, and `MouseExecutor`. `BLETransport` sends mouse and keyboard commands to the ESP32-S3. |
+| Conversations and tools | Services handle assistant conversations, voice, camera input, web research, system actions, and file processing. Corresponding views provide their interfaces. |
+| Local storage | Stores manage settings, task history and queues, memory, recordings, and service preferences. API credentials use the Keychain. |
+| Shared types | `Shared` defines action, protocol, and feature data models. Live Activity attributes and controls are also compiled into the extension. |
+| System surfaces | `Activity` renders Live Activities and Dynamic Island content. App services manage Activity updates, Picture in Picture, Siri, and Shortcuts. |
+| Control instructions | `Skills` contains bundled instructions loaded by `PhoneControlSkill` for the visual phone control loop. |
+| Accessory firmware | `firmware/main` implements BLE services, HID reports, command execution, and RGB status feedback for the ESP32-S3. |
+
+### Where to Make Changes
+
+- Add or update a screen in `PhoneAgent/Views`; use `Appearance` for shared styling.
+- Add service behavior in `PhoneAgent/Services`, persistent state in `Stores`, and reusable data types in `Shared`.
+- Update phone control rules in `Skills` and accessory commands in `Shared/MouseProtocol.swift` together with the firmware.
+- Keep extension UI in `Activity`; shared extension types belong in `Shared` with the appropriate target membership.
+
+Xcode uses synchronized source folders. Swift files inside those folders are included automatically, subject to target membership exceptions. `Skills` is explicitly bundled as a folder resource. See [Architecture](docs/architecture.md) for the execution flow and detailed component boundaries.
+
 ## Data and Runtime
 
 API keys are stored in the iPhone Keychain. Tasks, memory, recordings, and files are stored locally. Shared screen images, task text, and relevant context are sent to your configured model service after the required consent.
