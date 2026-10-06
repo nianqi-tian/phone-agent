@@ -52,6 +52,10 @@ Xcode 使用 `PBXFileSystemSynchronizedRootGroup`，文件夹内容与工程导�
 
 固件通过自定义 BLE 服务接收命令，再用 HID 报告控制同一台 iPhone。配对、加密、HID 订阅和控制通道分别有自己的就绪状态。
 
+## 实时活动外观
+
+锁屏卡片在 `Activity/TaskActivityWidget.swift` 的 `LockScreenTaskActivity` 中组织。背景通过系统的 `activityBackgroundTint` 设置为半透明浅灰或深灰，背景和文字都从同一 SwiftUI `colorScheme` 环境取色，避免 UIKit 动态颜色与锁屏环境分别解析。降低透明度时使用实色背景；息屏低亮度状态使用深色实底和浅色文字。灵动岛继续使用系统背景，任务控制权限与按钮行为不变。
+
 ## 数据和密钥
 
 `SettingsStore` 将模型密钥保存到 Keychain。任务、记忆、录音和文件由各自 Store 在本机管理；发送到模型或其他服务前，由对应数据授权和工具确认流程控制。API 响应、捕获画面和用户数据不属于源码仓库内容。
