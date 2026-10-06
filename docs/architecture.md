@@ -46,6 +46,10 @@ Xcode 使用 `PBXFileSystemSynchronizedRootGroup`，文件夹内容与工程导�
 
 `CaptureService` 提供用户授权的画面，`VisionClient` 请求配置的模型，`AgentEngine` 管理观察、动作校验、暂停、停止与重试。动作由 `MouseExecutor` 转换为 `MouseProtocol` 数据包，通过 `BLETransport` 交给配件执行。执行后重新观察，避免继续使用旧画面。
 
+画面的 `capturedAt` 保存像素采集时间，`confirmedAt` 保存系统最近确认当前画面的时间。仅在收到同一个捕获流的完整帧或明确的 [idle 状态](https://developer.apple.com/documentation/screencapturekit/scframestatus/idle) 时更新确认时间；idle 表示内容未变化，复用当前流的最后一张完整图像。空白、暂停、未知状态和共享切换会清除可用画面。转换节流期间保留最后一个完整像素缓冲区，进入 idle 前先处理它，避免把较早的图像当作当前内容。流 ID 和事件序号拦截旧流或乱序回调。
+
+模型返回和用户确认之后，执行器最多等待 6 秒取得最近 1.5 秒内被系统确认的整屏画面。拿到画面后核对捕获流、源尺寸、模型图像尺寸和图像差异；发生变化时丢弃旧动作并重新观察。共享停止会立即取消执行，短暂不可用期间不发送输入，持续不可用则保留任务供恢复。等待和恢复信息写入任务日志。本地时间流逝不会延长任何图像的有效期。
+
 固件通过自定义 BLE 服务接收命令，再用 HID 报告控制同一台 iPhone。配对、加密、HID 订阅和控制通道分别有自己的就绪状态。
 
 ## 数据和密钥

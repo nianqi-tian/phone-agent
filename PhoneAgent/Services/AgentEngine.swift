@@ -199,16 +199,48 @@ final class AgentEngine: ObservableObject {
         try Task.checkCancellation()
         guard token == session && running else { throw CancellationError() }
     }
-    private func freshFrame(after: Date) async throws -> ScreenFrame {
+    private func recentFrame(after: Date) -> ScreenFrame? {
+        guard let frame = capture.frame, frame.fullDisplay, frame.confirmedAt > after else { return nil }
+        let age = Date().timeIntervalSince(frame.confirmedAt)
+        return (0..<1.5).contains(age) ? frame : nil
+    }
+    private func freshFrame(after: Date, token: UUID) async throws -> ScreenFrame {
         let deadline = Date().addingTimeInterval(6)
         while Date() < deadline {
-            try Task.checkCancellation()
+            try stillCurrent(token)
             guard capture.running else { throw AgentError.message("屏幕共享已停止") }
-            if let frame = capture.frame, frame.fullDisplay, frame.capturedAt > after,
-               Date().timeIntervalSince(frame.capturedAt) < 1.5 { return frame }
+            if capture.frame?.fullDisplay == false { throw AgentError.message("屏幕共享已切换为单个应用，请重新共享整屏") }
+            if let frame = recentFrame(after: after) { return frame }
             try await Task.sleep(nanoseconds: 150_000_000)
         }
-        throw AgentError.message("没有收到新画面，已停止执行")
+        try stillCurrent(token)
+        throw AgentError.message("等待 6 秒仍未收到可用的整屏画面，请检查屏幕共享后继续")
+    }
+    private func validatedFrame(for observation: ScreenFrame, token: UUID,
+                                after: Date? = nil, waitingMessage: String) async throws -> ScreenFrame? {
+        try stillCurrent(token)
+        let after = after ?? observation.confirmedAt
+        let waiting = recentFrame(after: after) == nil
+        if waiting {
+            transition(.observing, waitingMessage)
+            let detail = capture.frame.map { "距系统确认画面 \(String(format: "%.1f", Date().timeIntervalSince($0.confirmedAt))) 秒" }
+                ?? "当前没有可用画面"
+            log("等待最新画面", detail + "；最多等待 6 秒，期间不发送输入")
+        }
+        let latest = try await freshFrame(after: after, token: token)
+        try stillCurrent(token)
+        guard observation.captureID == latest.captureID,
+              observation.sourceWidth == latest.sourceWidth, observation.sourceHeight == latest.sourceHeight,
+              observation.width == latest.width, observation.height == latest.height else {
+            log("共享或画面尺寸已改变", "丢弃旧动作，使用当前整屏重新观察")
+            return nil
+        }
+        guard imageDifference(observation.image, latest.image) <= 0.18 else {
+            log("画面已改变", "丢弃旧动作，重新观察")
+            return nil
+        }
+        if waiting { log("画面已恢复", "已核对最新画面与模型所见画面，继续当前步骤") }
+        return latest
     }
     private func planningGoal(_ goal: String) -> String {
         guard let subtasks = currentRecord?.subtasks, !subtasks.isEmpty else { return goal }
@@ -235,7 +267,7 @@ final class AgentEngine: ObservableObject {
         var retried = false
         while true {
             try stillCurrent(token)
-            let frame = try await freshFrame(after: after)
+            let frame = try await freshFrame(after: after, token: token)
             if !settings.previewOnly { _ = try executor.validateCalibration(frame: frame) }
             transition(.observing, retried ? "第 \(step) 步：重新观察并生成完整动作" : "第 \(step) 步：正在观察")
             do {
@@ -319,15 +351,9 @@ final class AgentEngine: ObservableObject {
                 let (frame, action) = try await observeAction(goal: goal, settings: settings, client: client, token: token,
                     step: step, after: after, remainingRecoveries: &remainingRecoveries, responseLimit: &responseLimit)
                 try stillCurrent(token)
-                guard capture.running, let nowFrame = capture.frame, nowFrame.fullDisplay,
-                      Date().timeIntervalSince(nowFrame.capturedAt) < 1.5 else {
-                    throw AgentError.message("模型返回时屏幕画面已失效")
-                }
-                guard frame.sourceWidth == nowFrame.sourceWidth && frame.sourceHeight == nowFrame.sourceHeight else {
-                    throw AgentError.message("分析期间屏幕方向改变，请重新开始")
-                }
-                if imageDifference(frame.image, nowFrame.image) > 0.18 {
-                    log("画面已改变", "丢弃旧动作，重新观察"); after = Date(); continue
+                guard var executionFrame = try await validatedFrame(for: frame, token: token,
+                    waitingMessage: "模型已返回，等待最新屏幕画面") else {
+                    after = Date(); continue
                 }
                 let identity = "\(action.kind.rawValue)|\(action.x ?? -1)|\(action.y ?? -1)|\(action.x2 ?? -1)|\(action.y2 ?? -1)|\(action.text ?? "")|\(action.amount ?? 0)"
                 repeatedActions = previousIdentity == identity ? repeatedActions + 1 : 0; previousIdentity = identity
@@ -350,15 +376,16 @@ final class AgentEngine: ObservableObject {
                     pendingAction = action; approved = false; transition(.awaitingApproval, "等待确认：\(action.label)")
                     while !approved { try await Task.sleep(nanoseconds: 150_000_000); try stillCurrent(token) }
                     pendingAction = nil
-                    guard let latest = capture.frame, Date().timeIntervalSince(latest.capturedAt) < 1.5,
-                          imageDifference(nowFrame.image, latest.image) < 0.18 else {
-                        log("确认后画面已改变", "丢弃动作，重新观察"); after = Date(); continue
+                    guard let latest = try await validatedFrame(for: frame, token: token, after: Date(),
+                        waitingMessage: "已确认，正在核对最新屏幕画面") else {
+                        after = Date(); continue
                     }
+                    executionFrame = latest
                 }
                 try stillCurrent(token); executingAction = action; transition(.acting, "第 \(step) 步：\(action.label)")
                 // The action refers to the observation image; dimensions were checked above.
                 if action.kind == .system_tool { try await executeTool(action, settings: settings, token: token) }
-                else { try await executor.execute(action, frame: nowFrame,
+                else { try await executor.execute(action, frame: executionFrame,
                     mappedHomeAvailable: settings.homeButtonIsMapped(to: executor.ble.selectedID)) }
                 try stillCurrent(token); executingAction = nil
                 try await Task.sleep(nanoseconds: UInt64(max(0.4, min(5, settings.stepInterval)) * 1_000_000_000))

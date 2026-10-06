@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/iOS-27-000000?style=flat-square&logo=apple&logoColor=white" alt="iOS 27">
   <img src="https://img.shields.io/badge/SwiftUI-Liquid%20Glass-007AFF?style=flat-square&logo=swift&logoColor=white" alt="SwiftUI Liquid Glass">
   <img src="https://img.shields.io/badge/ESP32-S3-007AFF?style=flat-square" alt="ESP32-S3">
-  <img src="https://img.shields.io/badge/build-67-007AFF?style=flat-square" alt="Build 67">
+  <img src="https://img.shields.io/badge/build-68-007AFF?style=flat-square" alt="Build 68">
 </p>
 
 <a href="https://github.com/boboabw/phone-agent/archive/refs/heads/main.zip"><b>Download Source</b></a> ·

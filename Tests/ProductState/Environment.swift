@@ -14,6 +14,8 @@ struct UIImage {
 struct ScreenFrame {
     let image = UIImage(), jpeg = Data()
     let capturedAt = Date(), fullDisplay = true
+    var confirmedAt: Date { capturedAt }
+    let captureID: UUID? = nil
     let width = 2, height = 2, sourceWidth = 2, sourceHeight = 2
 }
 @MainActor final class CaptureService {

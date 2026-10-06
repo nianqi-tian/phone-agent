@@ -11,11 +11,21 @@ struct ScreenFrame {
     let image: UIImage
     let jpeg: Data
     let capturedAt: Date
+    // Pixel capture time and stream confirmation time differ on an unchanged screen.
+    let confirmedAt: Date
+    let captureID: UUID?
     let sourceWidth: Int
     let sourceHeight: Int
     let fullDisplay: Bool
     var width: Int { image.cgImage?.width ?? 0 }
     var height: Int { image.cgImage?.height ?? 0 }
+
+    init(image: UIImage, jpeg: Data, capturedAt: Date, sourceWidth: Int,
+         sourceHeight: Int, fullDisplay: Bool, confirmedAt: Date? = nil, captureID: UUID? = nil) {
+        self.image = image; self.jpeg = jpeg; self.capturedAt = capturedAt
+        self.confirmedAt = confirmedAt ?? capturedAt; self.captureID = captureID
+        self.sourceWidth = sourceWidth; self.sourceHeight = sourceHeight; self.fullDisplay = fullDisplay
+    }
 }
 
 @MainActor
@@ -30,6 +40,7 @@ final class CaptureService: ObservableObject {
     var onStop: (() -> Void)?
     var maxSide = 1280
     private var session = UUID()
+    private var lastUpdateSequence: UInt64 = 0
     #if canImport(ScreenCaptureKit)
     private var capture: NativeCapture?
     #endif
@@ -37,20 +48,25 @@ final class CaptureService: ObservableObject {
         guard !running && !waitingForPicker else { return }
         #if canImport(ScreenCaptureKit)
         error = ""; frame = nil; lastBackgroundFrame = nil; waitingForPicker = true; state = "请在系统选择器中共享整屏"
-        let token = UUID(); session = token
-        let capture = NativeCapture(maxSide: maxSide, onFrame: { [weak self] frame, fps in
+        let token = UUID(); session = token; lastUpdateSequence = 0
+        let capture = NativeCapture(maxSide: maxSide, onUpdate: { [weak self] update, generation, sequence in
             Task { @MainActor in
-                guard self?.session == token else { return }
-                self?.frame = frame; self?.fps = fps; self?.running = true
-                if UIApplication.shared.applicationState == .background { self?.lastBackgroundFrame = frame }
-                self?.waitingForPicker = false; self?.state = frame.fullDisplay ? "整屏捕获中" : "仅当前应用，不能执行整屏 Agent"
-            }
-        }, onState: { [weak self] running, status, error in
-            Task { @MainActor in
-                guard let self else { return }
-                guard self.session == token else { return }
-                self.running = running; self.waitingForPicker = false; self.state = status; self.error = error ?? ""
-                if !running { self.frame = nil; self.lastBackgroundFrame = nil; self.onStop?() }
+                guard let self, self.session == token,
+                      self.capture?.accepts(generation) == true, sequence > self.lastUpdateSequence else { return }
+                self.lastUpdateSequence = sequence
+                self.waitingForPicker = false
+                switch update {
+                case .frame(let frame, let fps):
+                    self.frame = frame; self.fps = fps; self.running = true; self.error = ""
+                    if UIApplication.shared.applicationState == .background { self.lastBackgroundFrame = frame }
+                    self.state = frame.fullDisplay ? "整屏捕获中" : "仅当前应用，不能执行整屏 Agent"
+                case .waiting(let status):
+                    self.frame = nil; self.lastBackgroundFrame = nil; self.fps = 0
+                    self.running = true; self.state = status
+                case .state(let running, let status, let error):
+                    self.running = running; self.state = status; self.error = error ?? ""
+                    if !running { self.frame = nil; self.lastBackgroundFrame = nil; self.fps = 0; self.onStop?() }
+                }
             }
         })
         self.capture = capture; capture.present()
@@ -68,28 +84,56 @@ final class CaptureService: ObservableObject {
 }
 
 #if canImport(ScreenCaptureKit)
+private enum CaptureUpdate {
+    case frame(ScreenFrame, fps: Double)
+    case waiting(String)
+    case state(running: Bool, status: String, error: String?)
+}
+
 // Owned by the main actor; frame processing runs on a serial callback queue.
-final class NativeCapture: NSObject, SCContentSharingPickerObserver, SCStreamOutput, SCStreamDelegate {
-    private let onFrame: (ScreenFrame, Double) -> Void
-    private let onState: (Bool, String, String?) -> Void
+private final class NativeCapture: NSObject, SCContentSharingPickerObserver, SCStreamOutput, SCStreamDelegate {
+    private let onUpdate: (CaptureUpdate, UUID, UInt64) -> Void
     private let context = CIContext(options: [.cacheIntermediates: false])
     private let maxSide: Int
     private var stream: SCStream?
-    private var lastFrameAt = Date.distantPast
+    // These values are confined to framesQueue, including resets between streams.
+    private var framesGeneration: UUID?
+    private var lastFrame: ScreenFrame?
+    private struct PendingFrame {
+        let buffer: CVPixelBuffer
+        let capturedAt: Date
+    }
+    private var pendingFrame: PendingFrame?
+    private var lastPublishedAt = Date.distantPast
+    private var lastWaitingStatus: String?
     private var times: [Date] = []
     private var fullDisplay = false
     private var stopped = false
     private var generation = UUID()
+    private var updateSequence: UInt64 = 0
     private let framesQueue = DispatchQueue(label: "PhoneAgent.capture.frames")
     private let metadataLock = NSLock()
-    init(maxSide: Int, onFrame: @escaping (ScreenFrame, Double) -> Void,
-         onState: @escaping (Bool, String, String?) -> Void) {
-        self.maxSide = max(640, min(2048, maxSide)); self.onFrame = onFrame; self.onState = onState
+    init(maxSide: Int, onUpdate: @escaping (CaptureUpdate, UUID, UInt64) -> Void) {
+        self.maxSide = max(640, min(2048, maxSide)); self.onUpdate = onUpdate
         super.init()
+    }
+    func accepts(_ token: UUID) -> Bool {
+        metadataLock.lock(); defer { metadataLock.unlock() }
+        return !stopped && generation == token
+    }
+    private func publish(_ update: CaptureUpdate, generation token: UUID) {
+        metadataLock.lock()
+        guard !stopped && generation == token else { metadataLock.unlock(); return }
+        updateSequence += 1; let sequence = updateSequence
+        metadataLock.unlock()
+        onUpdate(update, token, sequence)
     }
     func present() {
         let picker = SCContentSharingPicker.shared
-        guard picker.isAvailable else { onState(false, "系统不允许屏幕捕获", "检查屏幕录制限制"); return }
+        guard picker.isAvailable else {
+            publish(.state(running: false, status: "系统不允许屏幕捕获", error: "检查屏幕录制限制"), generation: generation)
+            return
+        }
         picker.add(self); picker.isActive = true; picker.present(using: .display)
     }
     func stop() {
@@ -119,44 +163,125 @@ final class NativeCapture: NSObject, SCContentSharingPickerObserver, SCStreamOut
             metadataLock.lock()
             guard !stopped && generation == token else { metadataLock.unlock(); return }
             self.stream = next; metadataLock.unlock()
+            publish(.waiting("共享已更新，等待完整画面"), generation: token)
             next.startCapture { [weak self] error in
                 guard let self else { return }
-                self.metadataLock.lock(); let valid = !self.stopped && self.generation == token; self.metadataLock.unlock()
-                guard valid else { return }
-                self.onState(error == nil, error == nil ? "捕获已开始" : "捕获启动失败", error?.localizedDescription)
+                if let error {
+                    self.endStream(next, status: "捕获启动失败", error: error.localizedDescription)
+                } else {
+                    self.publish(.state(running: true, status: "捕获已开始", error: nil), generation: token)
+                }
             }
-        } catch { onState(false, "捕获启动失败", error.localizedDescription) }
+        } catch { publish(.state(running: false, status: "捕获启动失败", error: error.localizedDescription), generation: token) }
     }
     func contentSharingPicker(_ picker: SCContentSharingPicker, didCancelFor stream: SCStream?) {
-        metadataLock.lock(); let empty = self.stream == nil; metadataLock.unlock()
-        if empty { onState(false, "已取消屏幕共享", nil) }
+        metadataLock.lock(); let empty = self.stream == nil; let token = generation; metadataLock.unlock()
+        if empty { publish(.state(running: false, status: "已取消屏幕共享", error: nil), generation: token) }
     }
-    func contentSharingPickerStartDidFailWithError(_ error: Error) { onState(false, "共享选择器失败", error.localizedDescription) }
+    func contentSharingPickerStartDidFailWithError(_ error: Error) {
+        metadataLock.lock(); let token = generation; metadataLock.unlock()
+        publish(.state(running: false, status: "共享选择器失败", error: error.localizedDescription), generation: token)
+    }
     func stream(_ stream: SCStream, didStopWithError error: Error) {
-        metadataLock.lock(); let valid = stream === self.stream && !stopped; metadataLock.unlock()
-        guard valid else { return }
-        onState(false, "系统已停止屏幕共享", error.localizedDescription)
+        endStream(stream, error: error.localizedDescription)
+    }
+    private func endStream(_ stream: SCStream, status: String = "系统已停止屏幕共享", error: String?) {
+        metadataLock.lock()
+        guard stream === self.stream && !stopped else { metadataLock.unlock(); return }
+        self.stream = nil; generation = UUID(); let token = generation
+        metadataLock.unlock()
+        publish(.state(running: false, status: status, error: error), generation: token)
     }
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        metadataLock.lock(); let valid = stream === self.stream && !stopped; let isFullDisplay = fullDisplay; metadataLock.unlock()
-        guard valid, type == .screen, CMSampleBufferIsValid(sampleBuffer),
-              let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        metadataLock.lock(); let valid = stream === self.stream && !stopped
+        let isFullDisplay = fullDisplay; let token = generation; metadataLock.unlock()
+        guard valid, type == .screen else { return }
+        if framesGeneration != token {
+            framesGeneration = token; lastFrame = nil; pendingFrame = nil
+            lastPublishedAt = .distantPast; lastWaitingStatus = nil; times = []
+        }
+        guard CMSampleBufferIsValid(sampleBuffer),
+              let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
+              let rawStatus = attachments.first?[.status] as? Int,
+              let status = SCFrameStatus(rawValue: rawStatus) else {
+            waitForFrame("等待可用的屏幕画面", generation: token)
+            return
+        }
         let now = Date()
+        switch status {
+        case .idle:
+            // The final changed frame may have arrived during the render throttle.
+            // Render those pixels before accepting any idle confirmation.
+            if let pending = pendingFrame {
+                pendingFrame = nil
+                render(pending.buffer, capturedAt: pending.capturedAt, confirmedAt: now,
+                       fullDisplay: isFullDisplay, generation: token)
+                return
+            }
+            // Only an actual idle callback confirms that these pixels remain current.
+            // Never renew freshness from a timer or from blank/suspended buffers.
+            guard let previous = lastFrame, now.timeIntervalSince(lastPublishedAt) >= 0.25 else { return }
+            let frame = ScreenFrame(image: previous.image, jpeg: previous.jpeg, capturedAt: previous.capturedAt,
+                sourceWidth: previous.sourceWidth, sourceHeight: previous.sourceHeight, fullDisplay: isFullDisplay,
+                confirmedAt: now, captureID: token)
+            lastFrame = frame; lastPublishedAt = now; lastWaitingStatus = nil
+            publish(.frame(frame, fps: 0), generation: token)
+            return
+        case .complete:
+            lastFrame = nil
+        case .blank, .suspended, .started:
+            waitForFrame(status == .blank ? "屏幕暂不可用，等待画面恢复" : "等待屏幕画面恢复", generation: token)
+            return
+        case .stopped:
+            lastFrame = nil; pendingFrame = nil
+            endStream(stream, error: nil)
+            return
+        @unknown default:
+            waitForFrame("等待可用的屏幕画面", generation: token)
+            return
+        }
+        guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            waitForFrame("等待完整的屏幕画面", generation: token)
+            return
+        }
         times.append(now); times.removeAll { now.timeIntervalSince($0) > 2 }
-        guard now.timeIntervalSince(lastFrameAt) >= 0.25 else { return }
-        lastFrameAt = now
+        // minimumFrameInterval is unavailable on iOS. Keep the newest complete
+        // buffer while throttling expensive image conversion locally to 4 FPS.
+        guard now.timeIntervalSince(lastPublishedAt) >= 0.25 else {
+            pendingFrame = PendingFrame(buffer: buffer, capturedAt: now)
+            return
+        }
+        pendingFrame = nil
+        render(buffer, capturedAt: now, confirmedAt: now, fullDisplay: isFullDisplay, generation: token)
+    }
+    private func waitForFrame(_ status: String, generation token: UUID) {
+        lastFrame = nil; pendingFrame = nil
+        guard lastWaitingStatus != status else { return }
+        lastWaitingStatus = status
+        publish(.waiting(status), generation: token)
+    }
+    private func render(_ buffer: CVPixelBuffer, capturedAt: Date, confirmedAt: Date,
+                        fullDisplay: Bool, generation token: UUID) {
         autoreleasepool {
             let source = CIImage(cvPixelBuffer: buffer)
             let s = min(1, CGFloat(maxSide) / max(source.extent.width, source.extent.height))
             let scaled = source.transformed(by: CGAffineTransform(scaleX: s, y: s))
-            guard let cg = context.createCGImage(scaled, from: scaled.extent) else { return }
+            guard let cg = context.createCGImage(scaled, from: scaled.extent) else {
+                waitForFrame("等待完整的屏幕画面", generation: token)
+                return
+            }
             let image = UIImage(cgImage: cg)
-            guard let jpeg = image.jpegData(compressionQuality: 0.72) else { return }
-            let duration = now.timeIntervalSince(times.first ?? now)
+            guard let jpeg = image.jpegData(compressionQuality: 0.72) else {
+                waitForFrame("等待完整的屏幕画面", generation: token)
+                return
+            }
+            let duration = confirmedAt.timeIntervalSince(times.first ?? confirmedAt)
             let fps = duration > 0 ? Double(max(0, times.count - 1)) / duration : 0
-            onFrame(ScreenFrame(image: image, jpeg: jpeg, capturedAt: now,
+            let frame = ScreenFrame(image: image, jpeg: jpeg, capturedAt: capturedAt,
                 sourceWidth: CVPixelBufferGetWidth(buffer), sourceHeight: CVPixelBufferGetHeight(buffer),
-                fullDisplay: isFullDisplay), fps)
+                fullDisplay: fullDisplay, confirmedAt: confirmedAt, captureID: token)
+            lastFrame = frame; lastPublishedAt = confirmedAt; lastWaitingStatus = nil
+            publish(.frame(frame, fps: fps), generation: token)
         }
     }
 }

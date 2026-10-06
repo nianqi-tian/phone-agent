@@ -294,7 +294,7 @@ final class PhoneAgentViewModel: ObservableObject {
                     return
                 }
                 if capture.running, let frame = capture.frame, frame.fullDisplay,
-                   Date().timeIntervalSince(frame.capturedAt) < 1.5, settings.previewOnly || ble.ready {
+                   (0..<1.5).contains(Date().timeIntervalSince(frame.confirmedAt)), settings.previewOnly || ble.ready {
                     if !settings.previewOnly {
                         do { _ = try executor.validateCalibration(frame: frame) }
                         catch {
