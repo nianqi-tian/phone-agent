@@ -20,7 +20,7 @@ PhoneAgent/
 Shared/                          # 协议、数据模型和跨 Target 类型
 Activity/                        # 实时活动扩展
 Skills/                          # App 打包的运行时规则
-firmware/                        # ESP32-C3/S3 固件
+firmware/                        # ESP32-S3 固件
 Tests/                           # 已有离线检查
 scripts/
 docs/

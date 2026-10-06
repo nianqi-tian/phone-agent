@@ -1,6 +1,6 @@
 # Phone Agent
 
-原生 iPhone AI 助手，配合 ESP32-C3 / ESP32-S3 蓝牙鼠标与键盘配件，根据共享画面执行手机任务。当前源码版本：**1.0 / Build 67**。Swift 工程已按 GestaltEdit 的职责划分与同步文件夹方式整理，详见 [源码结构](docs/architecture.md)。
+原生 iPhone AI 助手，配合 ESP32-S3 蓝牙鼠标与键盘配件，根据共享画面执行手机任务。当前源码版本：**1.0 / Build 67**。Swift 工程已按 GestaltEdit 的职责划分与同步文件夹方式整理，详见 [源码结构](docs/architecture.md)。
 
 ## 功能
 
@@ -32,8 +32,7 @@ xcodebuild -project PhoneAgent.xcodeproj -scheme PhoneAgent \
 在已配置 ESP-IDF 的终端编译配件：
 
 ```sh
-bash scripts/build-firmware.sh esp32s3
-# 或：bash scripts/build-firmware.sh esp32c3
+bash scripts/build-firmware.sh
 ```
 
 在 App 设置中填写服务商的完整 **HTTPS Chat Completions URL**、模型 ID 和自己的 API Key。屏幕操控需要支持图像输入的模型。API Key 由 App 保存在 iPhone 钥匙串中。
@@ -50,7 +49,7 @@ bash scripts/build-firmware.sh esp32s3
 | `Skills/` | 手机操控规则与 Apple 官方帮助索引；作为 App 资源打包 |
 | `firmware/` | NimBLE HID 与控制服务、鼠标轨迹、键盘及 RGB 状态灯 |
 | `Tests/` | 已有离线协议、产品状态和 Skill 打包检查 |
-| `scripts/` | 检查与双芯片固件构建入口 |
+| `scripts/` | 检查与 ESP32-S3 固件构建入口 |
 | `docs/` | 使用、架构、固件和验证说明 |
 
 ## 检查

@@ -1,7 +1,8 @@
-// AgentMouse: ESP-IDF 5.5.4, ESP32-C3 / ESP32-S3, NimBLE HID over GATT.
+// AgentMouse: ESP-IDF 5.5.4, ESP32-S3, NimBLE HID over GATT.
 // HID state transitions run on the NimBLE host queue. RGB rendering uses a
 // separate low-priority task and a dedicated encrypted state characteristic.
 #include <assert.h>
+#include "sdkconfig.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include "esp_timer.h"
@@ -17,12 +18,10 @@
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
 
-// Distinct GAP names so one iPhone can tell a C3 board from an S3 board apart.
-#if CONFIG_IDF_TARGET_ESP32S3
-#define DEVICE_NAME "AgentMouse-S3"
-#else
-#define DEVICE_NAME "AgentMouse-C3"
+#if !CONFIG_IDF_TARGET_ESP32S3
+#error "AgentMouse firmware supports ESP32-S3 only."
 #endif
+#define DEVICE_NAME "AgentMouse-S3"
 #define PACKET_SIZE 10
 #define MOVE_PACKET_SIZE 14
 #define WATCHDOG_MS 1500

@@ -38,7 +38,6 @@ xcodebuild -project PhoneAgent.xcodeproj -scheme PhoneAgent \
 | 协议、动作、键盘和校准 | 39 项通过 |
 | 生产引擎产品状态 | 74 项通过 |
 | 编译后 App 的 Skill 资源 | 14 项通过 |
-| ESP-IDF 5.5.4 / ESP32-C3 | 编译通过 |
 | ESP-IDF 5.5.4 / ESP32-S3，GPIO48 RGB | 编译通过 |
 | 文档本地链接、工程 plist 和 shell 语法 | 通过 |
 | 常见密钥格式和本机绝对路径检查 | 未发现匹配 |
@@ -48,3 +47,7 @@ xcodebuild -project PhoneAgent.xcodeproj -scheme PhoneAgent \
 ## GestaltEdit 结构参考
 
 2026-10-06：App 源码目录改为 `PhoneAgent/`，拆出页面、服务、Store、外观和 Debug 预览，工程改为 Xcode 同步文件夹。已有离线检查入口已同步源码路径；本次未重新运行测试。上表的 127 项结果属于结构重构前。Xcode 27 的 Debug 与 Release 通用 iOS 模拟器无签名编译均通过，构建日志未出现警告或错误；打包目录保留两套内置 Skill 及引用资源。此结果仅确认编译和打包。
+
+## 仅 ESP32-S3
+
+2026-10-06：固件目标固定为 ESP32-S3，配置合并为 `firmware/sdkconfig.defaults`，构建脚本使用固定目标。清理旧芯片配置、镜像、构建目录和混合源码压缩包。ESP-IDF 5.5.4 编译通过；应用镜像大小 `0x7e5b0`，可放入默认的 `0x100000` 应用分区。此更改未新增或运行测试，也未烧录设备。

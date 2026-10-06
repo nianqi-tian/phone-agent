@@ -126,7 +126,7 @@ esp_err_t status_led_init(void) {
     return rc;
 }
 #else
-// C3 keeps its existing hardware behavior; no GPIO48 access is compiled in.
+// RGB can be disabled in menuconfig without changing mouse or keyboard support.
 esp_err_t status_led_init(void) { return ESP_OK; }
 void status_led_set_connected(bool value) { (void)value; }
 void status_led_set_task(agent_led_task_state_t state) { (void)state; }
