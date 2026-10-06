@@ -65,6 +65,8 @@ See [Setup and Usage](docs/setup.md) for detailed instructions.
 
 ## Project Structure
 
+[GestaltEdit](https://github.com/frs0n/GestaltEdit) served as a reference for Swift source organization and README layout.
+
 The Swift app separates its entry point, interface, coordination, services, and local storage. Shared models and the Live Activity extension live alongside the app; ESP32-S3 firmware has its own ESP-IDF project.
 
 ```text
