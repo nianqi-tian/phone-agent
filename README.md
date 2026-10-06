@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="docs/icon.png" alt="Phone Agent 应用图标" width="128" height="128">
+<img src="docs/icon.png" alt="Phone Agent app icon" width="128" height="128">
 
 # Phone Agent
 
-**让 AI 看懂屏幕，操作你的 iPhone**
+**An AI assistant that sees your screen and operates your iPhone**
 
 <p>
   <img src="https://img.shields.io/badge/iOS-27-000000?style=flat-square&logo=apple&logoColor=white" alt="iOS 27">
@@ -13,42 +13,42 @@
   <img src="https://img.shields.io/badge/build-67-007AFF?style=flat-square" alt="Build 67">
 </p>
 
-<a href="https://github.com/boboabw/phone-agent/archive/refs/heads/main.zip"><b>下载源码</b></a> ·
-<a href="#使用要求">使用要求</a> ·
-<a href="#安装与配置">安装与配置</a> ·
-<a href="docs/firmware.md">固件烧录</a>
+<a href="https://github.com/boboabw/phone-agent/archive/refs/heads/main.zip"><b>Download Source</b></a> ·
+<a href="#requirements">Requirements</a> ·
+<a href="#install">Install</a> ·
+<a href="docs/firmware.md">Flash Firmware</a>
 
 </div>
 
-Phone Agent 是原生 iPhone AI 助手。通过你授权的屏幕共享理解当前画面，再用 ESP32-S3 蓝牙鼠标与键盘配件执行点击、移动和输入。
+Phone Agent is a native iPhone AI assistant. It understands the screen you choose to share, then uses an ESP32-S3 Bluetooth mouse and keyboard accessory to move, click, and type.
 
 > [!NOTE]
-> 当前提供开发版源码，需使用 Xcode 自行编译安装。手机操控需要 ESP32-S3 配件、指针校准、整屏共享和支持图像输入的模型。
+> This project currently provides development source code. Build and install the app with Xcode. Phone control requires an ESP32-S3 accessory, pointer calibration, full screen sharing, and a model that accepts images.
 
-## 功能
+## Features
 
-**操控手机** — 观察画面、生成动作、执行后再次观察。支持任务队列，以及暂停、停止、接管和补充任务。
+**Phone control** — Observe the screen, generate an action, execute it, and observe the result. Queue tasks, pause or stop execution, take over manually, and add instructions during a task.
 
-**问助手** — 文字、听写、屏幕与相机提问，提供可独立配置的实时语音对话。
+**Conversations** — Chat using text, dictation, shared screen images, or the camera. A separate configuration is available for real-time voice conversations.
 
-**资料与工具** — 联网检索、记忆、文件和录音管理，生成会议纪要、鱼骨图与表格。
+**Files and tools** — Web search, memory, file and recording management, meeting notes, fishbone diagrams, and spreadsheets.
 
-**系统集成** — Siri 与快捷指令、实时活动和动作画中画。使用 SwiftUI Liquid Glass，支持浅色和深色外观。
+**System integration** — Siri and Shortcuts, Live Activities, and an action status window using Picture in Picture. Built with SwiftUI Liquid Glass, with light and dark appearances.
 
-**蓝牙配件** — 鼠标、ASCII 键盘和快捷键，21 步精细校准。GPIO48 RGB 显示连接与任务状态：蓝色未连接、白色空闲、彩虹执行、红色失败、绿色完成。
+**Bluetooth accessory** — Mouse input, an ASCII keyboard, shortcuts, and pointer calibration in 21 steps. The GPIO48 RGB LED shows connection and task status: blue when disconnected, white when idle, rainbow during execution, red on failure, and green on completion.
 
-## 使用要求
+## Requirements
 
-- 运行 iOS 27 的 iPhone。
-- ESP32-S3 开发板与数据 USB 线；默认固件配置为 4 MB Flash，RGB 使用 GPIO48 上的 WS2812。
-- 支持图像输入的 OpenAI 兼容模型接口，以及自己的 API Key。
-- 开启辅助触控，并完成配件配对、指针校准和屏幕共享。
-- 编译 App 需要 Mac 和 Xcode 27；真机安装时为两个 Target 设置自己的签名 Team。
-- 编译固件需要 ESP-IDF 5.5.4。
+- An iPhone running iOS 27.
+- An ESP32-S3 development board and a USB data cable. The default firmware configuration uses 4 MB flash and a WS2812 RGB LED on GPIO48.
+- An OpenAI-compatible model endpoint that accepts images, and your own API key.
+- AssistiveTouch enabled, with accessory pairing, pointer calibration, and screen sharing completed.
+- A Mac and Xcode 27 to build the app. Select your signing team for both targets when installing on an iPhone.
+- ESP-IDF 5.5.4 to build the firmware.
 
-## 安装与配置
+## Install
 
-1. 克隆源码，用 Xcode 打开工程：
+1. Clone the repository and open the Xcode project:
 
    ```sh
    git clone https://github.com/boboabw/phone-agent.git
@@ -56,23 +56,23 @@ Phone Agent 是原生 iPhone AI 助手。通过你授权的屏幕共享理解当
    open PhoneAgent.xcodeproj
    ```
 
-2. 为 `PhoneAgent` 和 `PhoneAgentActivity` 两个 Target 选择自己的 Team，选择 iPhone 后编译运行。
-3. 在已启用 ESP-IDF 的终端执行 `bash scripts/build-firmware.sh`，按[固件说明](docs/firmware.md)烧录 ESP32-S3。
-4. 在 App 的“模型连接”中填写服务商、完整 HTTPS 接口地址、模型 ID 和 API Key，确认数据使用授权。
-5. 在系统辅助触控中配对 `AgentMouse-S3`，回到 App 连接并完成 21 步校准。开启整屏共享后，输入任务开始执行。
+2. Select your signing team for the `PhoneAgent` and `PhoneAgentActivity` targets. Choose your iPhone, then build and run.
+3. In a terminal with ESP-IDF activated, run `bash scripts/build-firmware.sh`. Follow the [firmware guide](docs/firmware.md) to flash the ESP32-S3.
+4. In the app's model connection settings, enter your provider name, complete HTTPS endpoint URL, model ID, and API key. Confirm the data sharing consent.
+5. Pair `AgentMouse-S3` in the system AssistiveTouch settings. Connect in the app and complete pointer calibration. Start full screen sharing, enter a task, and begin execution.
 
-完整步骤见[配置与运行](docs/setup.md)。
+See [Setup and Usage](docs/setup.md) for detailed instructions.
 
-## 数据与运行说明
+## Data and Runtime
 
-API Key 保存在 iPhone 钥匙串中。任务、记忆、录音和文件保存在本机；共享画面、任务文字和相关上下文会按对应授权发送到你配置的模型服务。
+API keys are stored in the iPhone Keychain. Tasks, memory, recordings, and files are stored locally. Shared screen images, task text, and relevant context are sent to your configured model service after the required consent.
 
-语音、Siri、画中画、BLE 和跨 App 执行需要真机验证。后台运行受 iOS 调度限制，持续常驻语音唤醒尚未实现。当前编译与离线检查记录见[验证说明](docs/verification.md)。
+Voice, Siri, Picture in Picture, BLE, and execution across apps require verification on an actual iPhone. Background execution is subject to iOS scheduling. Continuous listening for a wake word is not implemented. See [Verification](docs/verification.md) for build and offline check records.
 
-## 开发文档
+## Development Docs
 
-[源码结构](docs/architecture.md) · [固件与协议](docs/firmware.md) · [配置与运行](docs/setup.md) · [检查与构建记录](docs/verification.md)
+[Architecture](docs/architecture.md) · [Firmware and Protocol](docs/firmware.md) · [Setup and Usage](docs/setup.md) · [Checks and Build Records](docs/verification.md)
 
-## 参考
+## Reference
 
-[GestaltEdit](https://github.com/frs0n/GestaltEdit) — Swift 项目组织与 README 布局参考。
+[GestaltEdit](https://github.com/frs0n/GestaltEdit) — reference for the Swift project organization and README layout.
