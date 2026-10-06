@@ -52,6 +52,12 @@ xcodebuild -project PhoneAgent.xcodeproj -scheme PhoneAgent \
 
 2026-10-06：固件目标固定为 ESP32-S3，配置合并为 `firmware/sdkconfig.defaults`，构建脚本使用固定目标。清理旧芯片配置、镜像、构建目录和混合源码压缩包。ESP-IDF 5.5.4 编译通过；应用镜像大小 `0x7e5b0`，可放入默认的 `0x100000` 应用分区。此更改未新增或运行测试，也未烧录设备。
 
+## 设置页 GitHub 入口（Build 70）
+
+2026-10-06：设置总览最底部新增作者头像／GitHub 主页、`boboabw/phone-agent` 项目地址和 Star 入口，沿用玻璃卡片及原有按压反馈。GitHub API 确认账号和仓库地址；256 × 256 头像作为 JPEG 随 App 打包。仓库当前为私有，访问权限由 GitHub 控制；Star 入口只打开仓库页面。
+
+Xcode 27 Debug 真机编译与现有开发者签名通过，已更新到 USB 连接的 iPhone 14，并从设备安装清单确认 App 为 Build 70。本次未新增或运行测试、未调用模型，未验收实际界面及浏览器跳转。
+
 ## 实时活动配色（Build 69）
 
 2026-10-06：锁屏实时活动去除 95% 不透明的系统白底，改为半透明灰色 tint；背景、文字和控制按钮统一使用 SwiftUI 环境的深浅色。降低透明度和息屏低亮度时使用实色背景。Xcode 27 Debug／Release 通用 iOS 模拟器无签名编译通过，日志没有警告或错误。本次未新增或运行测试、未安装真机；实际锁屏材质及不同壁纸下的视觉效果尚未验收。

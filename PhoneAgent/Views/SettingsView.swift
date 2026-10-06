@@ -68,6 +68,7 @@ struct SettingsView: View {
                         Label("API Key 保存在这台设备的钥匙串", systemImage: "lock.shield")
                             .font(.caption).foregroundStyle(AgentPalette.secondaryText)
                             .padding(.horizontal, 16)
+                        GitHubSettingsFooter()
                     }.padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 28)
                 }
             }.background(AgentPalette.background)

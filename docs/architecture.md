@@ -38,6 +38,7 @@ Xcode 使用 `PBXFileSystemSynchronizedRootGroup`，文件夹内容与工程导�
 - `CaptureView`、`DeviceView`、`PreparationView` 分别负责共享、连接／校准入口和首次准备。
 - `PhoneAgentViewModel` 组合服务并协调任务、队列、语音和系统状态；统一提供交互占用状态。
 - `AssistantViews` / `AssistantConversation` 管理助手聊天；`SettingsView` 管理各项配置。
+- `GitHubSettingsFooter` 放在设置总览最底部，提供作者头像、主页、仓库路径和 Star 页面入口；头像随 Assets 打包，设置页不会为显示它发起网络请求。Star 入口只打开仓库页面，由用户在 GitHub 上决定是否收藏。
 - 持久数据用 `struct` / `enum` 表达，Store 负责本机读写；资源生命周期和共享可变状态由对应服务管理。
 
 这次调整不改变持久化键、模型 JSON、BLE 协议、Bundle ID、用户界面文案或现有玻璃与动画参数。并发语言模式迁移与结构调整分开处理，继续保持原工程的 Swift 5 模式和显式主 actor 标注。
