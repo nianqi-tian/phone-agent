@@ -72,7 +72,3 @@ Voice, Siri, Picture in Picture, BLE, and execution across apps require verifica
 ## Development Docs
 
 [Architecture](docs/architecture.md) · [Firmware and Protocol](docs/firmware.md) · [Setup and Usage](docs/setup.md) · [Checks and Build Records](docs/verification.md)
-
-## Reference
-
-[GestaltEdit](https://github.com/frs0n/GestaltEdit) — reference for the Swift project organization and README layout.
