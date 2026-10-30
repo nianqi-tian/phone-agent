@@ -21,7 +21,7 @@ struct TaskQueueView: View {
                             catch { self.error = error.localizedDescription }
                         }
                         Button("清除队列", role: .destructive) { clear = true }.disabled(locked || model.engine.running)
-                    } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.buttonStyle(.glass).accessibilityLabel("队列选项")
+                    } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.agentPlainGlassButton().accessibilityLabel("队列选项")
                 }
                 Text(model.queueStatus).font(.subheadline.weight(.medium))
                 AgentHelp(title: "队列如何运行", text: "完成一项后按顺序继续。插队会保存原任务，优先任务完成后从新画面恢复。暂停、需你处理或发生错误时，整个队列等待确认。重新打开 App 后不会自动运行。仅在前台开启下一项；已执行操作不会因移除队列而撤销。")
@@ -49,9 +49,9 @@ struct TaskQueueView: View {
                     }
                 }
             }.padding(20)
-        }.scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
+        }.agentScrollEdgeStyle()
             .animation(reduceMotion ? .easeOut(duration: 0.12) : .smooth(duration: 0.3), value: model.taskQueue.items.map(\.id))
-            .safeAreaBar(edge: .bottom, spacing: 0) {
+            .agentSafeAreaBar(edge: .bottom, spacing: 0) {
                 HStack(spacing: 12) {
                     if model.queueSwitching { ProgressView("正在切换任务…").frame(maxWidth: .infinity, minHeight: 48) }
                     else if model.queueRunning { Button("暂停队列") { model.pauseQueue() }.buttonStyle(AgentButtonStyle()) }

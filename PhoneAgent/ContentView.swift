@@ -94,7 +94,7 @@ struct ContentView: View {
             }.id(selectedDestination).transition(pageTransition)
         }
         .animation(pageAnimation, value: selectedDestination).tint(AgentPalette.accent)
-        .safeAreaBar(edge: .top, spacing: 0) {
+        .agentSafeAreaBar(edge: .top, spacing: 0) {
             VStack(spacing: 0) {
                 if selectedDestination != .settings { topBar }
                 AgentPiPPanel(controller: model.pip)
@@ -342,7 +342,7 @@ struct ContentView: View {
             else { draftCanvas }
         }
         .opacity(appeared ? 1 : 0).offset(y: appeared || reduceMotion ? 0 : 6)
-        .safeAreaBar(edge: .bottom, spacing: 0) { composerArea }
+        .agentSafeAreaBar(edge: .bottom, spacing: 0) { composerArea }
     }
     private var draftCanvas: some View {
         GeometryReader { geometry in
@@ -445,7 +445,7 @@ struct ContentView: View {
                 .padding(.bottom, 16)
             }
             .scrollDismissesKeyboard(.interactively)
-            .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
+            .agentScrollEdgeStyle()
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 geometry.visibleRect.maxY >= geometry.contentSize.height - 80
             } action: { _, nearBottom in followLatest = nearBottom }

@@ -35,7 +35,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
-                GlassEffectContainer(spacing: 8) {
+                AgentGlassContainer(spacing: 8) {
                     VStack(alignment: .leading, spacing: 26) {
                         settingsGroup("连接") {
                             route(.model, subtitle: modelSummary, icon: "sparkles")
@@ -72,7 +72,7 @@ struct SettingsView: View {
                     }.padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 28)
                 }
             }.background(AgentPalette.background)
-                .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
+                .agentScrollEdgeStyle()
                 .navigationTitle("设置").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
@@ -151,7 +151,7 @@ struct SettingsView: View {
                 }
             }.padding(20)
         }.background(AgentPalette.background).scrollDismissesKeyboard(.interactively)
-            .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
+            .agentScrollEdgeStyle()
             .onDisappear { showKey = false }
     }
     private var connection: some View {
@@ -200,7 +200,7 @@ struct SettingsView: View {
                         .font(.caption).foregroundStyle(AgentPalette.secondaryText)
                 }.font(.subheadline)
             }
-            GlassEffectContainer(spacing: 12) {
+            AgentGlassContainer(spacing: 12) {
                 let actionLayout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
                 actionLayout {
                     Button("保存配置") { model.saveKey(apiKey); connectionFailed = false; connectionMessage = model.notice }

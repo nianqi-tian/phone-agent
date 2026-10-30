@@ -42,55 +42,88 @@ final class CaptureService: ObservableObject {
     private var session = UUID()
     private var lastUpdateSequence: UInt64 = 0
     #if canImport(ScreenCaptureKit)
-    private var capture: NativeCapture?
+    private var nativeCaptureBox: AnyObject?
     #endif
+    private var broadcast: BroadcastCapture?
     func start() {
         guard !running && !waitingForPicker else { return }
-        #if canImport(ScreenCaptureKit)
-        error = ""; frame = nil; lastBackgroundFrame = nil; waitingForPicker = true; state = "请在系统选择器中共享整屏"
+        error = ""; frame = nil; lastBackgroundFrame = nil; waitingForPicker = true
         let token = UUID(); session = token; lastUpdateSequence = 0
-        let capture = NativeCapture(maxSide: maxSide, onUpdate: { [weak self] update, generation, sequence in
-            Task { @MainActor in
-                guard let self, self.session == token,
-                      self.capture?.accepts(generation) == true, sequence > self.lastUpdateSequence else { return }
-                self.lastUpdateSequence = sequence
-                self.waitingForPicker = false
-                switch update {
-                case .frame(let frame, let fps):
-                    self.frame = frame; self.fps = fps; self.running = true; self.error = ""
-                    if UIApplication.shared.applicationState == .background { self.lastBackgroundFrame = frame }
-                    self.state = frame.fullDisplay ? "整屏捕获中" : "仅当前应用，不能执行整屏 Agent"
-                case .waiting(let status):
-                    self.frame = nil; self.lastBackgroundFrame = nil; self.fps = 0
-                    self.running = true; self.state = status
-                case .state(let running, let status, let error):
-                    self.running = running; self.state = status; self.error = error ?? ""
-                    if !running { self.frame = nil; self.lastBackgroundFrame = nil; self.fps = 0; self.onStop?() }
-                }
-            }
-        })
-        self.capture = capture; capture.present()
-        #else
-        error = "模拟器不支持此屏幕框架，请使用 iOS 27 真机"
-        #endif
+        if #available(iOS 27, *) {
+            state = "请在系统选择器中共享整屏"
+            startNative(token: token)
+        } else {
+            state = "请点按开始整屏广播"
+            startBroadcast(token: token)
+        }
     }
     func stop() {
         session = UUID()
-        #if canImport(ScreenCaptureKit)
-        capture?.stop(); capture = nil
-        #endif
+        if #available(iOS 27, *) { stopNative() }
+        broadcast?.stop(); broadcast = nil
         running = false; waitingForPicker = false; frame = nil; lastBackgroundFrame = nil; state = "捕获已停止"; onStop?()
+    }
+    private func apply(_ update: CaptureUpdate, token: UUID, generation: UUID, sequence: UInt64, accepts: @escaping () -> Bool) {
+        Task { @MainActor in
+            guard session == token, accepts(), sequence > lastUpdateSequence else { return }
+            lastUpdateSequence = sequence
+            waitingForPicker = false
+            switch update {
+            case .frame(let frame, let fps):
+                self.frame = frame; self.fps = fps; self.running = true; self.error = ""
+                if UIApplication.shared.applicationState == .background { self.lastBackgroundFrame = frame }
+                self.state = frame.fullDisplay ? "整屏捕获中" : "仅当前应用，不能执行整屏 Agent"
+            case .waiting(let status):
+                self.frame = nil; self.lastBackgroundFrame = nil; self.fps = 0
+                self.running = true; self.state = status
+            case .state(let running, let status, let error):
+                self.running = running; self.state = status; self.error = error ?? ""
+                if !running { self.frame = nil; self.lastBackgroundFrame = nil; self.fps = 0; self.onStop?() }
+            }
+        }
+    }
+    @available(iOS 27, *)
+    private func startNative(token: UUID) {
+        #if canImport(ScreenCaptureKit)
+        let capture = NativeCapture(maxSide: maxSide, onUpdate: { [weak self] update, generation, sequence in
+            guard let self else { return }
+            self.apply(update, token: token, generation: generation, sequence: sequence) {
+                (self.nativeCaptureBox as? NativeCapture)?.accepts(generation) == true
+            }
+        })
+        nativeCaptureBox = capture; capture.present()
+        #else
+        waitingForPicker = false
+        error = "模拟器不支持此屏幕框架，请使用真机"
+        #endif
+    }
+    @available(iOS 27, *)
+    private func stopNative() {
+        #if canImport(ScreenCaptureKit)
+        (nativeCaptureBox as? NativeCapture)?.stop(); nativeCaptureBox = nil
+        #endif
+    }
+    private func startBroadcast(token: UUID) {
+        let capture = BroadcastCapture(maxSide: maxSide, onUpdate: { [weak self] update, generation, sequence in
+            guard let self else { return }
+            self.apply(update, token: token, generation: generation, sequence: sequence) {
+                self.broadcast?.accepts(generation) == true
+            }
+        })
+        broadcast = capture
+        capture.start()
     }
 }
 
-#if canImport(ScreenCaptureKit)
-private enum CaptureUpdate {
+enum CaptureUpdate {
     case frame(ScreenFrame, fps: Double)
     case waiting(String)
     case state(running: Bool, status: String, error: String?)
 }
 
+#if canImport(ScreenCaptureKit)
 // Owned by the main actor; frame processing runs on a serial callback queue.
+@available(iOS 27, *)
 private final class NativeCapture: NSObject, SCContentSharingPickerObserver, SCStreamOutput, SCStreamDelegate {
     private let onUpdate: (CaptureUpdate, UUID, UInt64) -> Void
     private let context = CIContext(options: [.cacheIntermediates: false])

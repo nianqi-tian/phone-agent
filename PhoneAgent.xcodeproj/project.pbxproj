@@ -20,6 +20,16 @@
 				);
 			};
 		};
+		00000000000000000000061A /* PBXBuildFile */ = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "000000000000000000000610";
+			"settings" = {
+				"ATTRIBUTES" = (
+					"CodeSignOnCopy",
+					"RemoveHeadersOnCopy",
+				);
+			};
+		};
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -28,6 +38,13 @@
 			"containerPortal" = "000000000000000000000001";
 			"remoteGlobalIDString" = "000000000000000000000410";
 			"remoteInfo" = "PhoneAgentActivity";
+			"proxyType" = "1";
+		};
+		000000000000000000000616 /* PBXContainerItemProxy */ = {
+			"isa" = "PBXContainerItemProxy";
+			"containerPortal" = "000000000000000000000001";
+			"remoteGlobalIDString" = "000000000000000000000600";
+			"remoteInfo" = "PhoneAgentBroadcast";
 			"proxyType" = "1";
 		};
 /* End PBXContainerItemProxy section */
@@ -41,6 +58,7 @@
 			"dstPath" = "";
 			"files" = (
 				"00000000000000000000041A",
+				"00000000000000000000061A",
 			);
 			"name" = "Embed App Extensions";
 		};
@@ -97,6 +115,13 @@
 			"path" = "scripts";
 			"sourceTree" = "<group>";
 		};
+		000000000000000000000610 /* PhoneAgentBroadcast.appex */ = {
+			"path" = "PhoneAgentBroadcast.appex";
+			"isa" = "PBXFileReference";
+			"includeInIndex" = "0";
+			"explicitFileType" = "wrapper.app-extension";
+			"sourceTree" = "BUILT_PRODUCTS_DIR";
+		};
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -134,6 +159,13 @@
 			);
 			"target" = "000000000000000000000410";
 		};
+		000000000000000000000621 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			"isa" = "PBXFileSystemSynchronizedBuildFileExceptionSet";
+			"membershipExceptions" = (
+				"Info.plist",
+			);
+			"target" = "000000000000000000000600";
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -161,6 +193,14 @@
 			"path" = "Activity";
 			"sourceTree" = "<group>";
 		};
+		000000000000000000000620 /* PhoneAgentBroadcast */ = {
+			"isa" = "PBXFileSystemSynchronizedRootGroup";
+			"exceptions" = (
+				"000000000000000000000621",
+			);
+			"path" = "PhoneAgentBroadcast";
+			"sourceTree" = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -176,6 +216,12 @@
 			"files" = ();
 			"runOnlyForDeploymentPostprocessing" = "0";
 		};
+		000000000000000000000612 /* PBXFrameworksBuildPhase */ = {
+			"isa" = "PBXFrameworksBuildPhase";
+			"buildActionMask" = "2147483647";
+			"files" = ();
+			"runOnlyForDeploymentPostprocessing" = "0";
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -186,6 +232,7 @@
 				"000000000000000000000500",
 				"000000000000000000000501",
 				"000000000000000000000502",
+				"000000000000000000000620",
 				"000000000000000000000078",
 				"000000000000000000000508",
 				"000000000000000000000509",
@@ -200,6 +247,7 @@
 			"name" = "Products";
 			"children" = (
 				"000000000000000000000419",
+				"000000000000000000000610",
 				"000000000000000000000006",
 			);
 			"sourceTree" = "<group>";
@@ -221,6 +269,7 @@
 			);
 			"dependencies" = (
 				"000000000000000000000417",
+				"000000000000000000000617",
 			);
 			"name" = "PhoneAgent";
 			"buildRules" = ();
@@ -248,6 +297,24 @@
 				"000000000000000000000501",
 			);
 		};
+		000000000000000000000600 /* PhoneAgentBroadcast */ = {
+			"buildConfigurationList" = "000000000000000000000618";
+			"productReference" = "000000000000000000000610";
+			"productType" = "com.apple.product-type.app-extension";
+			"productName" = "PhoneAgentBroadcast";
+			"isa" = "PBXNativeTarget";
+			"buildPhases" = (
+				"000000000000000000000611",
+				"000000000000000000000612",
+				"000000000000000000000613",
+			);
+			"dependencies" = ();
+			"name" = "PhoneAgentBroadcast";
+			"buildRules" = ();
+			"fileSystemSynchronizedGroups" = (
+				"000000000000000000000620",
+			);
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -256,6 +323,7 @@
 			"targets" = (
 				"000000000000000000000002",
 				"000000000000000000000410",
+				"000000000000000000000600",
 			);
 			"developmentRegion" = "en";
 			"knownRegions" = (
@@ -299,6 +367,12 @@
 			"files" = ();
 			"runOnlyForDeploymentPostprocessing" = "0";
 		};
+		000000000000000000000613 /* PBXResourcesBuildPhase */ = {
+			"isa" = "PBXResourcesBuildPhase";
+			"buildActionMask" = "2147483647";
+			"files" = ();
+			"runOnlyForDeploymentPostprocessing" = "0";
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -314,6 +388,12 @@
 			"files" = ();
 			"runOnlyForDeploymentPostprocessing" = "0";
 		};
+		000000000000000000000611 /* PBXSourcesBuildPhase */ = {
+			"isa" = "PBXSourcesBuildPhase";
+			"buildActionMask" = "2147483647";
+			"files" = ();
+			"runOnlyForDeploymentPostprocessing" = "0";
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -321,6 +401,11 @@
 			"isa" = "PBXTargetDependency";
 			"target" = "000000000000000000000410";
 			"targetProxy" = "000000000000000000000416";
+		};
+		000000000000000000000617 /* PBXTargetDependency */ = {
+			"isa" = "PBXTargetDependency";
+			"target" = "000000000000000000000600";
+			"targetProxy" = "000000000000000000000616";
 		};
 /* End PBXTargetDependency section */
 
@@ -330,7 +415,7 @@
 			"buildSettings" = {
 				"SWIFT_ACTIVE_COMPILATION_CONDITIONS" = "DEBUG";
 				"CLANG_ENABLE_MODULES" = "YES";
-				"IPHONEOS_DEPLOYMENT_TARGET" = "27.0";
+				"IPHONEOS_DEPLOYMENT_TARGET" = "18.0";
 				"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
 				"SWIFT_VERSION" = "5.0";
 				"SDKROOT" = "iphoneos";
@@ -342,7 +427,7 @@
 			"isa" = "XCBuildConfiguration";
 			"buildSettings" = {
 				"CLANG_ENABLE_MODULES" = "YES";
-				"IPHONEOS_DEPLOYMENT_TARGET" = "27.0";
+				"IPHONEOS_DEPLOYMENT_TARGET" = "18.0";
 				"SWIFT_COMPILATION_MODE" = "wholemodule";
 				"SWIFT_OPTIMIZATION_LEVEL" = "-O";
 				"SWIFT_VERSION" = "5.0";
@@ -364,8 +449,9 @@
 				"CODE_SIGN_STYLE" = "Automatic";
 				"PRODUCT_NAME" = "$(TARGET_NAME)";
 				"ASSETCATALOG_COMPILER_APPICON_NAME" = "AppIcon";
-				"PRODUCT_BUNDLE_IDENTIFIER" = "dev.agentmouse.controller";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.benbenqi.phoneagent";
 				"CURRENT_PROJECT_VERSION" = "70";
+				"IPHONEOS_DEPLOYMENT_TARGET" = "18.0";
 			};
 			"name" = "Debug";
 		};
@@ -382,8 +468,9 @@
 				"CODE_SIGN_STYLE" = "Automatic";
 				"PRODUCT_NAME" = "$(TARGET_NAME)";
 				"ASSETCATALOG_COMPILER_APPICON_NAME" = "AppIcon";
-				"PRODUCT_BUNDLE_IDENTIFIER" = "dev.agentmouse.controller";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.benbenqi.phoneagent";
 				"CURRENT_PROJECT_VERSION" = "70";
+				"IPHONEOS_DEPLOYMENT_TARGET" = "18.0";
 			};
 			"name" = "Release";
 		};
@@ -401,8 +488,9 @@
 				"CODE_SIGN_STYLE" = "Automatic";
 				"PRODUCT_NAME" = "$(TARGET_NAME)";
 				"SWIFT_VERSION" = "5.0";
-				"PRODUCT_BUNDLE_IDENTIFIER" = "dev.agentmouse.controller.activity";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.benbenqi.phoneagent.activity";
 				"CURRENT_PROJECT_VERSION" = "70";
+				"IPHONEOS_DEPLOYMENT_TARGET" = "18.0";
 			};
 			"name" = "Debug";
 		};
@@ -420,8 +508,49 @@
 				"CODE_SIGN_STYLE" = "Automatic";
 				"PRODUCT_NAME" = "$(TARGET_NAME)";
 				"SWIFT_VERSION" = "5.0";
-				"PRODUCT_BUNDLE_IDENTIFIER" = "dev.agentmouse.controller.activity";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.benbenqi.phoneagent.activity";
 				"CURRENT_PROJECT_VERSION" = "70";
+				"IPHONEOS_DEPLOYMENT_TARGET" = "18.0";
+			};
+			"name" = "Release";
+		};
+		000000000000000000000614 /* Debug */ = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"APPLICATION_EXTENSION_API_ONLY" = "YES";
+				"DEVELOPMENT_TEAM" = "";
+				"MARKETING_VERSION" = "1.0";
+				"TARGETED_DEVICE_FAMILY" = "1";
+				"INFOPLIST_FILE" = "PhoneAgentBroadcast/Info.plist";
+				"SKIP_INSTALL" = "YES";
+				"GENERATE_INFOPLIST_FILE" = "NO";
+				"SUPPORTED_PLATFORMS" = "iphoneos iphonesimulator";
+				"CODE_SIGN_STYLE" = "Automatic";
+				"PRODUCT_NAME" = "$(TARGET_NAME)";
+				"SWIFT_VERSION" = "5.0";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.benbenqi.phoneagent.broadcast";
+				"CURRENT_PROJECT_VERSION" = "70";
+				"IPHONEOS_DEPLOYMENT_TARGET" = "18.0";
+			};
+			"name" = "Debug";
+		};
+		000000000000000000000615 /* Release */ = {
+			"isa" = "XCBuildConfiguration";
+			"buildSettings" = {
+				"APPLICATION_EXTENSION_API_ONLY" = "YES";
+				"DEVELOPMENT_TEAM" = "";
+				"MARKETING_VERSION" = "1.0";
+				"TARGETED_DEVICE_FAMILY" = "1";
+				"INFOPLIST_FILE" = "PhoneAgentBroadcast/Info.plist";
+				"SKIP_INSTALL" = "YES";
+				"GENERATE_INFOPLIST_FILE" = "NO";
+				"SUPPORTED_PLATFORMS" = "iphoneos iphonesimulator";
+				"CODE_SIGN_STYLE" = "Automatic";
+				"PRODUCT_NAME" = "$(TARGET_NAME)";
+				"SWIFT_VERSION" = "5.0";
+				"PRODUCT_BUNDLE_IDENTIFIER" = "com.benbenqi.phoneagent.broadcast";
+				"CURRENT_PROJECT_VERSION" = "70";
+				"IPHONEOS_DEPLOYMENT_TARGET" = "18.0";
 			};
 			"name" = "Release";
 		};
@@ -453,6 +582,15 @@
 			"buildConfigurations" = (
 				"000000000000000000000414",
 				"000000000000000000000415",
+			);
+		};
+		000000000000000000000618 /* XCConfigurationList */ = {
+			"isa" = "XCConfigurationList";
+			"defaultConfigurationIsVisible" = "0";
+			"defaultConfigurationName" = "Release";
+			"buildConfigurations" = (
+				"000000000000000000000614",
+				"000000000000000000000615",
 			);
 		};
 /* End XCConfigurationList section */

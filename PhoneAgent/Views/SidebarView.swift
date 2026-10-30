@@ -152,7 +152,7 @@ struct SidebarView: View {
             }
             .scrollDismissesKeyboard(.interactively)
 
-            GlassEffectContainer(spacing: 16) {
+            AgentGlassContainer(spacing: 16) {
                 HStack(spacing: 16) {
                     Button {
                         onNewConversation()
@@ -161,7 +161,7 @@ struct SidebarView: View {
                             .font(.subheadline.weight(.semibold))
                             .padding(.horizontal, 22).frame(minHeight: 40)
                     }
-                    .buttonStyle(.glassProminent).buttonBorderShape(.capsule)
+                    .agentProminentGlassButton().buttonBorderShape(.capsule)
                     .tint(AgentPalette.accent).foregroundStyle(.white)
                     .disabled(model.voiceMode != nil)
                     .accessibilityLabel("新建")

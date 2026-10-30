@@ -37,6 +37,14 @@ enum LocalFileRecognition {
     }
     @MainActor
     static func audioText(_ url: URL) async throws -> String {
+        if #available(iOS 26, *) {
+            return try await audioTextWithAnalyzer(url)
+        }
+        return try await audioTextLegacy(url)
+    }
+    @available(iOS 26, *)
+    @MainActor
+    private static func audioTextWithAnalyzer(_ url: URL) async throws -> String {
         guard SpeechTranscriber.isAvailable, let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "zh-CN")) else { throw AgentError.message("此设备没有可用的本机文件转写模块；没有上传音频") }
         try Task.checkCancellation()
         let file = try AVAudioFile(forReading: url)
@@ -68,5 +76,47 @@ enum LocalFileRecognition {
             do { try await analyzer.start(inputAudioFile: file, finishAfterFile: true); let text = try await results.value; try Task.checkCancellation(); guard !expired else { throw AgentError.message("文件转写超时，未保存部分结果，请缩短音频") }; return text }
             catch { results.cancel(); await analyzer.cancelAndFinishNow(); throw error }
         } onCancel: { Task { await analyzer.cancelAndFinishNow() } }
+    }
+    @MainActor
+    private static func audioTextLegacy(_ url: URL) async throws -> String {
+        try Task.checkCancellation()
+        let file = try AVAudioFile(forReading: url)
+        guard file.processingFormat.sampleRate > 0, Double(file.length)/file.processingFormat.sampleRate <= 600 else {
+            throw AgentError.message("音频文件最长 10 分钟，请先分段")
+        }
+        let permission = await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
+        }
+        try Task.checkCancellation()
+        guard permission == .authorized else { throw AgentError.message("请在系统设置中允许语音识别") }
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN")), recognizer.isAvailable,
+              recognizer.supportsOnDeviceRecognition else {
+            throw AgentError.message("此设备没有可用的本机文件转写模块；没有上传音频")
+        }
+        let request = SFSpeechURLRecognitionRequest(url: url)
+        request.requiresOnDeviceRecognition = true
+        request.shouldReportPartialResults = false
+        return try await withCheckedThrowingContinuation { continuation in
+            let lock = NSLock()
+            var finished = false
+            func finish(_ result: Result<String, Error>) {
+                lock.lock(); defer { lock.unlock() }
+                guard !finished else { return }
+                finished = true
+                continuation.resume(with: result)
+            }
+            recognizer.recognitionTask(with: request) { result, error in
+                if let error { finish(.failure(error)); return }
+                guard let result, result.isFinal else { return }
+                let text = result.bestTranscription.formattedString
+                if text.isEmpty {
+                    finish(.failure(AgentError.message("音频文件没有识别到文字")))
+                } else if text.count > 12000 {
+                    finish(.failure(AgentError.message("转写超过 12000 字，请先分段；没有保存截断的结果")))
+                } else {
+                    finish(.success(text))
+                }
+            }
+        }
     }
 }

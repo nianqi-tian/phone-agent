@@ -5,6 +5,7 @@ import Speech
 import UIKit
 
 // The tap owns the converter and copies each buffer before handing it to Speech.
+@available(iOS 26, *)
 private final class SpeechAudioBridge: @unchecked Sendable {
     let format: AVAudioFormat
     let converter: AVAudioConverter?
@@ -37,6 +38,12 @@ private final class SpeechAudioBridge: @unchecked Sendable {
     }
 }
 
+@available(iOS 26, *)
+private final class SpeechAnalyzerSession {
+    var analyzer: SpeechAnalyzer?
+    var continuation: AsyncStream<AnalyzerInput>.Continuation?
+}
+
 @MainActor
 final class VoiceController: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     @Published private(set) var transcript = ""
@@ -58,8 +65,7 @@ final class VoiceController: NSObject, ObservableObject, AVSpeechSynthesizerDele
     private var transcriptLimit = 4000
     private var engine: AVAudioEngine?
     private var installedTap = false
-    private var analyzer: SpeechAnalyzer?
-    private var continuation: AsyncStream<AnalyzerInput>.Continuation?
+    private var analyzerSession: AnyObject?
     private var legacyRequest: SFSpeechAudioBufferRecognitionRequest?
     private var legacyTask: SFSpeechRecognitionTask?
     private var legacyFinal = false
@@ -73,7 +79,7 @@ final class VoiceController: NSObject, ObservableObject, AVSpeechSynthesizerDele
 
     override init() {
         super.init(); speaker.delegate = self
-        interruptionObserver = NotificationCenter.default.addObserver(forName: AVAudioSession.didBecomeInactiveNotification, object: nil, queue: .main) { [weak self] _ in
+        interruptionObserver = NotificationCenter.default.addObserver(forName: AudioCompatibility.inactivityNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.audioActive, self.usingAudio else { return }
                 self.cancel(); self.status = "语音被系统中断，已保留识别文字"
@@ -101,25 +107,28 @@ final class VoiceController: NSObject, ObservableObject, AVSpeechSynthesizerDele
                 let engine = AVAudioEngine(); self.engine = engine
                 let input = engine.inputNode.outputFormat(forBus: 0)
                 guard input.sampleRate > 0, input.channelCount > 0 else { throw AgentError.message("没有可用的麦克风输入") }
-                if SpeechTranscriber.isAvailable, let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "zh-CN")) {
+                var startedAnalyzer = false
+                if #available(iOS 26, *), SpeechTranscriber.isAvailable,
+                   let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "zh-CN")) {
                     try self.check(token)
-                    do { try await self.startAnalyzer(engine: engine, input: input, locale: locale, token: token) }
-                    catch is CancellationError { throw CancellationError() }
+                    do {
+                        try await self.startAnalyzer(engine: engine, input: input, locale: locale, token: token)
+                        startedAnalyzer = true
+                    } catch is CancellationError { throw CancellationError() }
                     catch {
                         // A device or model asset may be unavailable. Fall back only
                         // to on-device recognition; never silently upload audio.
-                        await self.analyzer?.cancelAndFinishNow(); self.analyzer = nil
+                        await self.cancelAnalyzerSession()
                         self.resultsTask?.cancel(); self.resultsTask = nil
-                        self.continuation?.finish(); self.continuation = nil
                         try self.check(token)
-                        try await self.startLegacy(engine: engine, input: input, token: token)
                     }
-                } else { try await self.startLegacy(engine: engine, input: input, token: token) }
+                }
+                if !startedAnalyzer { try await self.startLegacy(engine: engine, input: input, token: token) }
                 try self.check(token)
                 engine.prepare(); try engine.start()
                 self.preparing = false; self.listening = true; self.lastTextAt = Date()
                 self.timeoutTask = Task { [weak self] in
-                    do { let limit = self?.analyzer == nil ? min(60, maxDuration) : min(600, maxDuration)
+                    do { let limit = self?.usingAnalyzer == true ? min(600, maxDuration) : min(60, maxDuration)
                     try await Task.sleep(nanoseconds: UInt64(max(1, limit) * 1_000_000_000)) } catch { return }
                     guard let self, token == self.generation else { return }
                     await self.finish(); self.status = "本次听写已结束，文字可以修改后提交"
@@ -145,19 +154,33 @@ final class VoiceController: NSObject, ObservableObject, AVSpeechSynthesizerDele
         try Task.checkCancellation()
         guard token == generation else { throw CancellationError() }
     }
+    private var usingAnalyzer: Bool {
+        if #available(iOS 26, *) { return (analyzerSession as? SpeechAnalyzerSession)?.analyzer != nil }
+        return false
+    }
+    @available(iOS 26, *)
+    private func cancelAnalyzerSession() async {
+        let session = analyzerSession as? SpeechAnalyzerSession
+        session?.continuation?.finish()
+        analyzerSession = nil
+        await session?.analyzer?.cancelAndFinishNow()
+    }
+    @available(iOS 26, *)
     private func startAnalyzer(engine: AVAudioEngine, input: AVAudioFormat, locale: Locale, token: UUID) async throws {
         let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
         if let installation = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
             status = "正在下载中文语音资源，音频仍在本机处理"
             try await installation.downloadAndInstall(); try check(token)
         }
-        let analyzer = SpeechAnalyzer(modules: [transcriber]); self.analyzer = analyzer
+        let session = SpeechAnalyzerSession()
+        let analyzer = SpeechAnalyzer(modules: [transcriber]); session.analyzer = analyzer
+        analyzerSession = session
         guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber], considering: input) else {
             throw AgentError.message("本机语音模型没有可用的音频格式")
         }
         try check(token); try await analyzer.prepareToAnalyze(in: format); try check(token)
         let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream()
-        self.continuation = continuation
+        session.continuation = continuation
         let bridge = SpeechAudioBridge(input: input, output: format, continuation: continuation)
         guard input == format || bridge.converter != nil else { throw AgentError.message("无法转换麦克风音频格式") }
         resultsTask = Task { [weak self] in
@@ -177,7 +200,9 @@ final class VoiceController: NSObject, ObservableObject, AVSpeechSynthesizerDele
             }
         }
         try await analyzer.start(inputSequence: stream); try check(token)
-        try engine.inputNode.installAudioTap(onBus: 0, bufferSize: 1024, format: input) { buffer, _ in bridge.append(AVAudioPCMBuffer(copying: buffer)) }
+        try AudioCompatibility.installTap(on: engine.inputNode, bufferSize: 1024, format: input) { buffer in
+            bridge.append(buffer)
+        }
         installedTap = true; status = "正在听 · 本机识别"
     }
     private func startLegacy(engine: AVAudioEngine, input: AVAudioFormat, token: UUID) async throws {
@@ -204,7 +229,9 @@ final class VoiceController: NSObject, ObservableObject, AVSpeechSynthesizerDele
                 }
             }
         }
-        try engine.inputNode.installAudioTap(onBus: 0, bufferSize: 1024, format: input) { buffer, _ in request.append(AVAudioPCMBuffer(copying: buffer)) }
+        try AudioCompatibility.installTap(on: engine.inputNode, bufferSize: 1024, format: input) { buffer in
+            request.append(buffer)
+        }
         installedTap = true; status = "正在听 · 本机听写"
     }
     private func setTranscript(_ text: String) {
@@ -223,8 +250,9 @@ final class VoiceController: NSObject, ObservableObject, AVSpeechSynthesizerDele
         guard listening, !finalizing else { return }
         let token = generation
         listening = false; finalizing = true; status = "正在整理识别文字"
-        stopMicrophone(); continuation?.finish(); continuation = nil; legacyRequest?.endAudio()
-        if let analyzer {
+        stopMicrophone(); legacyRequest?.endAudio()
+        if #available(iOS 26, *), let session = analyzerSession as? SpeechAnalyzerSession, let analyzer = session.analyzer {
+            session.continuation?.finish(); session.continuation = nil
             let timeout = Task {
                 do { try await Task.sleep(nanoseconds: 3_000_000_000) } catch { return }
                 await analyzer.cancelAndFinishNow()
@@ -240,14 +268,19 @@ final class VoiceController: NSObject, ObservableObject, AVSpeechSynthesizerDele
         }
         guard token == generation else { return }
         legacyTask?.cancel(); legacyTask = nil; legacyRequest = nil
-        analyzer = nil; resultsTask = nil; setupTask = nil
+        analyzerSession = nil; resultsTask = nil; setupTask = nil
         finalizing = false; status = "识别完成，可以修改后提交"; releaseAudio()
     }
     func cancel() {
         generation = UUID(); setupTask?.cancel(); setupTask = nil
-        stopMicrophone(); continuation?.finish(); continuation = nil
+        stopMicrophone()
         resultsTask?.cancel(); resultsTask = nil
-        if let analyzer { Task { await analyzer.cancelAndFinishNow() } }; analyzer = nil
+        if #available(iOS 26, *) {
+            let session = analyzerSession as? SpeechAnalyzerSession
+            session?.continuation?.finish()
+            if let analyzer = session?.analyzer { Task { await analyzer.cancelAndFinishNow() } }
+        }
+        analyzerSession = nil
         legacyTask?.cancel(); legacyTask = nil; legacyRequest = nil
         preparing = false; listening = false; finalizing = false
         speechCompletion = nil; utterance = nil; speaker.stopSpeaking(at: .immediate); isSpeaking = false

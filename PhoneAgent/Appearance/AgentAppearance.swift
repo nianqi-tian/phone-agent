@@ -195,15 +195,19 @@ struct AgentButtonStyle: PrimitiveButtonStyle {
     @Environment(\.isEnabled) private var enabled
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
+    @ViewBuilder
     func makeBody(configuration: Configuration) -> some View {
         Group {
             if reduceTransparency || contrast == .increased {
                 if primary { button(configuration).buttonStyle(.borderedProminent) }
                 else { button(configuration).buttonStyle(.bordered) }
+            } else if #available(iOS 26, *) {
+                if primary { button(configuration).buttonStyle(.glassProminent) }
+                else { button(configuration).buttonStyle(.glass) }
             } else if primary {
-                button(configuration).buttonStyle(.glassProminent)
+                button(configuration).buttonStyle(.borderedProminent)
             } else {
-                button(configuration).buttonStyle(.glass)
+                button(configuration).buttonStyle(.bordered)
             }
         }.tint(primary ? AgentPalette.accent : AgentPalette.ink).buttonBorderShape(.roundedRectangle(radius: 16))
     }
@@ -289,13 +293,17 @@ private struct AgentGlassSurface<S: Shape>: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
+    @ViewBuilder
     func body(content: Content) -> some View {
         if reduceTransparency || contrast == .increased {
             content.background(AgentPalette.surface, in: shape)
                 .overlay { shape.stroke(AgentPalette.ink.opacity(contrast == .increased ? 0.55 : 0.18), lineWidth: 1) }
-        } else {
+        } else if #available(iOS 26, *) {
             content.glassEffect((clear ? Glass.clear : Glass.regular).tint(tint)
                 .interactive(interactive && !reduceMotion), in: shape)
+        } else {
+            content.background(.ultraThinMaterial, in: shape)
+                .overlay { shape.stroke(AgentPalette.ink.opacity(0.08), lineWidth: 0.5) }
         }
     }
 }
@@ -315,6 +323,71 @@ extension View {
     }
     func agentField() -> some View {
         modifier(AgentFieldSurface())
+    }
+    func agentScrollEdgeStyle() -> some View {
+        modifier(AgentScrollEdgeStyle())
+    }
+    func agentSafeAreaBar<Bar: View>(edge: VerticalEdge, spacing: CGFloat = 0, @ViewBuilder content: () -> Bar) -> some View {
+        modifier(AgentSafeAreaBar(edge: edge, spacing: spacing, bar: content()))
+    }
+    @ViewBuilder
+    func agentGlassEffectID(_ id: String, in namespace: Namespace.ID) -> some View {
+        if #available(iOS 26, *) { self.glassEffectID(id, in: namespace) } else { self }
+    }
+    @ViewBuilder
+    func agentGlassEffectTransition(reduceMotion: Bool) -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffectTransition(reduceMotion ? .identity : .matchedGeometry)
+        } else { self }
+    }
+    @ViewBuilder
+    func agentProminentGlassButton() -> some View {
+        if #available(iOS 26, *) { self.buttonStyle(.glassProminent) } else { self.buttonStyle(.borderedProminent) }
+    }
+    @ViewBuilder
+    func agentPlainGlassButton() -> some View {
+        if #available(iOS 26, *) { self.buttonStyle(.glass) } else { self.buttonStyle(.bordered) }
+    }
+}
+
+struct AgentGlassContainer<Content: View>: View {
+    var spacing: CGFloat = 0
+    let content: Content
+    init(spacing: CGFloat = 0, @ViewBuilder content: () -> Content) {
+        self.spacing = spacing
+        self.content = content()
+    }
+    var body: some View {
+        if #available(iOS 26, *) {
+            GlassEffectContainer(spacing: spacing) { content }
+        } else {
+            content
+        }
+    }
+}
+
+private struct AgentScrollEdgeStyle: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content.scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
+        } else {
+            content
+        }
+    }
+}
+
+private struct AgentSafeAreaBar<Bar: View>: ViewModifier {
+    let edge: VerticalEdge
+    let spacing: CGFloat
+    let bar: Bar
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content.safeAreaBar(edge: edge, spacing: spacing) { bar }
+        } else {
+            content.safeAreaInset(edge: edge, spacing: spacing) { bar }
+        }
     }
 }
 

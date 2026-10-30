@@ -19,13 +19,13 @@ import AVFoundation
             let format = engine.inputNode.outputFormat(forBus: 0)
             let converter = try RealtimePCMConverter(input: format)
             let inbox = self.inbox
-            try engine.inputNode.installAudioTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-                do { inbox.append(try converter.convert(AVAudioPCMBuffer(copying: buffer))) } catch { inbox.append(Data()) }
+            try AudioCompatibility.installTap(on: engine.inputNode, bufferSize: 1024, format: format) { buffer in
+                do { inbox.append(try converter.convert(buffer)) } catch { inbox.append(Data()) }
             }
             tapped = true
             let player = AVAudioPlayerNode(); self.player = player; engine.attach(player)
             let playback = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 24000, channels: 1, interleaved: false)!
-            try engine.connectNode(player, to: engine.mainMixerNode, format: playback)
+            try AudioCompatibility.connect(engine, player, to: engine.mainMixerNode, format: playback)
             engine.prepare(); try engine.start()
         } catch { stop(); throw error }
     }
@@ -37,7 +37,7 @@ import AVFoundation
         player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
             Task { @MainActor in guard let self, self.playbackGeneration == token else { return }; self.pending = max(0, self.pending - frames) }
         }
-        if !player.isPlaying { try player.playAudio() }
+        if !player.isPlaying { try AudioCompatibility.play(player) }
     }
     var playedMilliseconds: Int {
         guard let player, let time = player.lastRenderTime, let position = player.playerTime(forNodeTime: time), position.sampleRate > 0 else { return 0 }

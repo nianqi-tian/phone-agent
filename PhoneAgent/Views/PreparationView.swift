@@ -19,7 +19,7 @@ struct PreparationView: View {
                     if model.preparationReady {
                         Label("已准备就绪，回到任务页开始", systemImage: "checkmark.circle").font(.headline)
                     }
-                    Text("需要 iOS 27。仅系统工具模式无需配件或共享；视觉执行需配件、校准和整屏共享，预览模式只生成计划。")
+                    Text("最低 iOS 18。仅系统工具模式无需配件或共享；视觉执行需配件、校准和整屏共享，预览模式只生成计划。iOS 18 上请用整屏广播共享画面。")
                         .font(.caption).foregroundStyle(.secondary)
                 }.padding(20)
             }.navigationTitle("使用准备").navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .confirmationAction) { Button("返回任务") { navigate(.tasks) } } }

@@ -39,7 +39,7 @@ final class AgentPiPController: NSObject, ObservableObject, AVPictureInPictureCo
         set { playbackState.paused = newValue }
     }
     private let synchronizer = AVSampleBufferRenderSynchronizer()
-    private var receiver: AVSampleBufferVideoRenderer.Receiver?
+    private var sampleReceiver: Any?
     private var audioActive = false
     private var wantsStart = false
     private var attached = false
@@ -52,7 +52,9 @@ final class AgentPiPController: NSObject, ObservableObject, AVPictureInPictureCo
         super.init()
         displayLayer.videoGravity = .resizeAspect
         synchronizer.delaysRateChangeUntilHasSufficientMediaData = false
-        receiver = synchronizer.sampleBufferReceiver(adding: displayLayer.sampleBufferRenderer)
+        if #available(iOS 27, *) {
+            sampleReceiver = synchronizer.sampleBufferReceiver(adding: displayLayer.sampleBufferRenderer)
+        }
         guard AVPictureInPictureController.isPictureInPictureSupported() else {
             error = "这台设备暂不支持系统画中画"; return
         }
@@ -78,7 +80,7 @@ final class AgentPiPController: NSObject, ObservableObject, AVPictureInPictureCo
             guard let self, self.enabled else { return }
             self.renderAndEnqueue()
         }.store(in: &subscriptions)
-        interrupted = NotificationCenter.default.addObserver(forName: AVAudioSession.didBecomeInactiveNotification, object: nil, queue: .main) { [weak self] _ in
+        interrupted = NotificationCenter.default.addObserver(forName: AudioCompatibility.inactivityNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.enabled, self.audioActive else { return }
                 self.audioActive = false
@@ -132,7 +134,7 @@ final class AgentPiPController: NSObject, ObservableObject, AVPictureInPictureCo
             } catch {
                 self.error = "无法准备画中画：\(error.localizedDescription)"; return false
             }
-            receiver?.flush()
+            flushPlayback()
             synchronizer.setRate(1, time: CMClockGetTime(CMClockGetHostTimeClock()))
         }
         renderAndEnqueue(); controller?.invalidatePlaybackState()
@@ -189,6 +191,13 @@ final class AgentPiPController: NSObject, ObservableObject, AVPictureInPictureCo
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         audioActive = false
     }
+    private func flushPlayback() {
+        if #available(iOS 27, *) {
+            (sampleReceiver as? AVSampleBufferVideoRenderer.Receiver)?.flush()
+        } else {
+            displayLayer.flush()
+        }
+    }
     private func renderAndEnqueue() {
         guard enabled, let engine else { return }
         if engine.running && paused { paused = false; controller?.invalidatePlaybackState() }
@@ -211,14 +220,19 @@ final class AgentPiPController: NSObject, ObservableObject, AVPictureInPictureCo
         var sample: CMSampleBuffer?
         guard CMSampleBufferCreateReadyWithImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: pixelBuffer,
             formatDescription: format, sampleTiming: &timing, sampleBufferOut: &sample) == noErr, let sample else { return }
-        let ready = CMReadySampleBuffer<CMSampleBuffer.DynamicContent>(unsafeBuffer: sample)
-        guard let receiver else { return }
-        switch receiver.enqueueImmediately(ready) {
-        case .cancelledDueToFlushRequiredToResume: receiver.flush()
-        case .cancelledDueToError(let error):
-            self.error = "浮窗画面更新失败：\(error.localizedDescription)"
-        default: break
+        if #available(iOS 27, *) {
+            let ready = CMReadySampleBuffer<CMSampleBuffer.DynamicContent>(unsafeBuffer: sample)
+            if let receiver = sampleReceiver as? AVSampleBufferVideoRenderer.Receiver {
+                switch receiver.enqueueImmediately(ready) {
+                case .cancelledDueToFlushRequiredToResume: receiver.flush()
+                case .cancelledDueToError(let error):
+                    self.error = "浮窗画面更新失败：\(error.localizedDescription)"
+                default: break
+                }
+                return
+            }
         }
+        displayLayer.enqueue(sample)
     }
     private func render(step: Int, running: Bool, title: String, detail: String, state: String, failed: Bool) -> CVPixelBuffer? {
         let width = 640, height = 360

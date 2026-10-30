@@ -224,41 +224,7 @@ struct AssistantView: View {
                         }.frame(maxWidth: .infinity).padding(.vertical, 80)
                     }
                     ForEach(model.conversation.messages) { message in
-                        HStack(alignment: .top) {
-                            if message.role == "user" { Spacer(minLength: 36) }
-                            VStack(alignment: .leading, spacing: 10) {
-                                if message.role != "user" {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "sparkles")
-                                            .font(.system(size: 13))
-                                            .foregroundStyle(AgentPalette.ink)
-                                        Text("助手")
-                                            .font(.caption2.weight(.semibold))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                Text(message.text).font(.body).lineSpacing(4).textSelection(.enabled)
-                                if let frames = message.cameraFrames {
-                                    Text("相机序列 · \(frames) 帧 · \(Int((message.cameraDuration ?? 0).rounded())) 秒")
-                                        .font(.caption2).foregroundStyle(.secondary)
-                                }
-                                if message.role == "assistant" {
-                                    HStack(spacing: 16) {
-                                        Button { model.speech.speak(message.text) } label: { Label("朗读", systemImage: "speaker.wave.2") }
-                                        Button {
-                                            UIPasteboard.general.string = message.text
-                                            model.notice = "已复制回答"
-                                        } label: { Label("复制", systemImage: "doc.on.doc") }
-                                        Button { memoryEditor = MemoryEditorSeed(value: AssistantMemory(title: String(message.text.prefix(30)), text: message.text, source: "对话回答 · " + message.createdAt.formatted())) } label: { Label("存为记忆", systemImage: "bookmark") }
-                                        ShareLink(item: message.text) { Label("分享", systemImage: "square.and.arrow.up") }
-                                    }.font(.caption).foregroundStyle(.secondary).labelStyle(.iconOnly).frame(minHeight: 44).buttonStyle(AgentPressStyle())
-                                }
-                            }
-                            .padding(message.role == "user" ? 14 : 16)
-                            .background(message.role == "user" ? AgentPalette.userBubble : Color.clear, in: RoundedRectangle(cornerRadius: 20))
-
-                            if message.role != "user" { Spacer(minLength: 0) }
-                        }.frame(maxWidth: .infinity, alignment: message.role == "user" ? .trailing : .leading).id(message.id)
+                        AssistantMessageBubble(message: message) { memory in memoryEditor = memory }
                     }
                     if model.conversation.loading { HStack { ProgressView(); Text("正在思考…").foregroundStyle(.secondary); Spacer(); Button("取消") { stopVoice(); model.liveCamera.stop(); model.conversation.cancel() } }.font(.subheadline) }
                     if !model.conversation.error.isEmpty { AgentNotice(text: model.conversation.error, error: true) }
@@ -277,7 +243,7 @@ struct AssistantView: View {
                     if followingConversation { reader.scrollTo("bottom", anchor: .bottom) }
                 }
         }
-        .safeAreaBar(edge: .bottom, spacing: 0) {
+        .agentSafeAreaBar(edge: .bottom, spacing: 0) {
             VStack(spacing: 8) {
                 if continuous {
                     HStack {
@@ -531,5 +497,57 @@ struct AssistantView: View {
             model.conversation.selectFrame(frame)
         }
         model.conversation.send(settings: model.settings, apiKey: SettingsStore.apiKey(for: model.settings.endpoint), memories: model.memories)
+    }
+}
+
+private struct AssistantMessageBubble: View {
+    @EnvironmentObject private var model: PhoneAgentViewModel
+    let message: AssistantMessage
+    let onSaveMemory: (MemoryEditorSeed) -> Void
+    var body: some View {
+        HStack(alignment: .top) {
+            if message.role == "user" { Spacer(minLength: 36) }
+            VStack(alignment: .leading, spacing: 10) {
+                if message.role != "user" {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 13))
+                            .foregroundStyle(AgentPalette.ink)
+                        Text("助手")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Text(message.text).font(.body).lineSpacing(4).textSelection(.enabled)
+                if let frames = message.cameraFrames {
+                    let seconds = Int((message.cameraDuration ?? 0).rounded())
+                    Text("相机序列 · \(frames) 帧 · \(seconds) 秒")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                if message.role == "assistant" {
+                    assistantActions
+                }
+            }
+            .padding(message.role == "user" ? 14 : 16)
+            .background(message.role == "user" ? AgentPalette.userBubble : Color.clear, in: RoundedRectangle(cornerRadius: 20))
+            if message.role != "user" { Spacer(minLength: 0) }
+        }
+        .frame(maxWidth: .infinity, alignment: message.role == "user" ? .trailing : .leading)
+        .id(message.id)
+    }
+    private var assistantActions: some View {
+        HStack(spacing: 16) {
+            Button { model.speech.speak(message.text) } label: { Label("朗读", systemImage: "speaker.wave.2") }
+            Button {
+                UIPasteboard.general.string = message.text
+                model.notice = "已复制回答"
+            } label: { Label("复制", systemImage: "doc.on.doc") }
+            Button {
+                let title = String(message.text.prefix(30))
+                let source = "对话回答 · " + message.createdAt.formatted()
+                onSaveMemory(MemoryEditorSeed(value: AssistantMemory(title: title, text: message.text, source: source)))
+            } label: { Label("存为记忆", systemImage: "bookmark") }
+            ShareLink(item: message.text) { Label("分享", systemImage: "square.and.arrow.up") }
+        }.font(.caption).foregroundStyle(.secondary).labelStyle(.iconOnly).frame(minHeight: 44).buttonStyle(AgentPressStyle())
     }
 }

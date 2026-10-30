@@ -28,7 +28,7 @@ final class RecordingAudioController: NSObject, ObservableObject, AVAudioRecorde
     private var notifications: [NSObjectProtocol] = []
     override init() {
         super.init()
-        for name in [AVAudioSession.interruptionNotification, AVAudioSession.didBecomeInactiveNotification, AVAudioSession.routeChangeNotification, AVAudioSession.mediaServicesWereResetNotification] {
+        for name in [AVAudioSession.interruptionNotification, AudioCompatibility.inactivityNotification, AVAudioSession.routeChangeNotification, AVAudioSession.mediaServicesWereResetNotification] {
             notifications.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] notification in
                 // Our own category setup also emits a route notification.
                 if notification.name == AVAudioSession.routeChangeNotification,

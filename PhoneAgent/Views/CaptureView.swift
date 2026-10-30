@@ -33,7 +33,7 @@ struct CaptureView: View {
                                     Text("等待画面").font(.caption).foregroundStyle(.secondary)
                                 }
                             }.padding(.vertical, 17)
-                            Text("通过系统选择器共享整屏").font(.subheadline.weight(.medium))
+                            Text("通过系统选择器或整屏广播共享画面").font(.subheadline.weight(.medium))
                             Text("切换到其他 App 后，助手仍能观察当前画面。")
                                 .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         }.frame(maxWidth: .infinity)
@@ -41,9 +41,17 @@ struct CaptureView: View {
                 }.agentPanel()
                 if model.capture.running {
                     Button("停止屏幕共享", role: .destructive) { model.stop(); model.capture.stop() }.buttonStyle(AgentButtonStyle(primary: false))
-                } else {
+                } else if #available(iOS 27, *) {
                     Button { model.capture.start() } label: { Label("共享整屏", systemImage: "rectangle.on.rectangle") }
                         .buttonStyle(AgentButtonStyle()).disabled(model.capture.waitingForPicker || busy)
+                } else {
+                    BroadcastStartControl(enabled: !busy)
+                        .onAppear { model.capture.start() }
+                    if model.capture.waitingForPicker {
+                        Button("取消等待") { model.capture.stop() }.buttonStyle(AgentButtonStyle(primary: false))
+                    }
+                    Text("点按上方按钮后，在系统界面选择“开始直播”。状态栏出现红点即表示整屏广播已开始。")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
                 if !model.capture.error.isEmpty { AgentNotice(text: model.capture.error, error: true) }
                 Text("开始任务后，画面会发送到你配置的模型。停止任务不会结束共享；受保护的内容可能显示为空白。")

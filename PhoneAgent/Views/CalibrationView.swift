@@ -226,7 +226,7 @@ struct CalibrationView: View {
                         if !model.error.isEmpty { AgentNotice(text: model.error, error: true) }
                         Text("3 个基础测量 · 9 宫格采样 · 9 次独立验证\n每个点先回左上角，再斜向定位。\n吸附到项目可能改变实际页面的落点；需要精确坐标时建议关闭后校准。")
                             .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                        GlassEffectContainer(spacing: 8) {
+                        AgentGlassContainer(spacing: 8) {
                             HStack(spacing: 10) {
                                 Button(model.finished ? "重新校准" : "开始校准") { model.start() }.buttonStyle(AgentButtonStyle())
                                 Button("完成") { model.cancel(); dismiss() }.buttonStyle(AgentButtonStyle(primary: false))

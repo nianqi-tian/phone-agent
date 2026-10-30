@@ -65,8 +65,8 @@ struct TaskDetailView: View {
                         }.font(.subheadline)
                     }.padding(20)
                 } else { Text("该任务已删除").padding(20) }
-            }.navigationTitle("任务详情").navigationBarTitleDisplayMode(.inline).scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
-            .safeAreaBar(edge: .bottom, spacing: 0) {
+            }.navigationTitle("任务详情").navigationBarTitleDisplayMode(.inline).agentScrollEdgeStyle()
+            .agentSafeAreaBar(edge: .bottom, spacing: 0) {
                 if let record {
                     VStack(spacing: 12) {
                         if current && (model.engine.running || model.engine.canResume || model.engine.releasing) { controls }
@@ -104,32 +104,32 @@ struct TaskDetailView: View {
         }.tint(AgentPalette.accent).agentSheetStyle()
     }
     private var controls: some View {
-        GlassEffectContainer(spacing: 8) {
+        AgentGlassContainer(spacing: 8) {
             VStack(spacing: 12) {
                 if model.engine.phase == .awaitingApproval {
                     Button(model.engine.pendingAction?.kind == .complete_subtask ? "确认这项已完成" : "执行这一步") { model.engine.approve() }.buttonStyle(AgentButtonStyle())
-                        .glassEffectID("approve", in: controlGlass)
+                        .agentGlassEffectID("approve", in: controlGlass)
                 }
                 if model.engine.running {
                     HStack(spacing: 12) {
                         Button("暂停任务") { model.pauseTask() }.buttonStyle(AgentButtonStyle(primary: false))
-                            .glassEffectID("continue", in: controlGlass)
-                            .glassEffectTransition(reduceMotion ? .identity : .matchedGeometry)
+                            .agentGlassEffectID("continue", in: controlGlass)
+                            .agentGlassEffectTransition(reduceMotion: reduceMotion)
                         Button("停止", role: .destructive) { model.stop() }.buttonStyle(AgentButtonStyle(primary: false))
-                            .glassEffectID("stop", in: controlGlass)
+                            .agentGlassEffectID("stop", in: controlGlass)
                     }
                     Button("接管并补充") { model.beginVoice(.supplement) }.buttonStyle(AgentButtonStyle(primary: false))
                 } else if model.engine.canResume {
                     Button("补充要求") { model.beginVoice(.supplement) }.buttonStyle(AgentButtonStyle(primary: false))
                     Button(model.engine.phase == .needsUser ? "我已处理，继续任务" : "继续任务") { model.resumeAgent() }.buttonStyle(AgentButtonStyle())
-                        .glassEffectID("continue", in: controlGlass)
-                        .glassEffectTransition(reduceMotion ? .identity : .matchedGeometry)
+                        .agentGlassEffectID("continue", in: controlGlass)
+                        .agentGlassEffectTransition(reduceMotion: reduceMotion)
                     Button("结束任务", role: .destructive) { model.stop() }.buttonStyle(AgentButtonStyle(primary: false))
-                        .glassEffectID("stop", in: controlGlass)
+                        .agentGlassEffectID("stop", in: controlGlass)
                 } else if model.engine.releasing {
                     ProgressView("正在释放输入…").padding(16).frame(maxWidth: .infinity)
                         .agentGlass(in: RoundedRectangle(cornerRadius: 20))
-                        .glassEffectID("continue", in: controlGlass)
+                        .agentGlassEffectID("continue", in: controlGlass)
                 }
             }
         }.animation(reduceMotion ? .easeOut(duration: 0.12) : .smooth(duration: 0.32), value: model.engine.phase)

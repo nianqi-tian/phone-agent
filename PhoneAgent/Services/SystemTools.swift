@@ -11,6 +11,7 @@ struct ToolApproval: Identifiable {
     var id = UUID()
     let request: SystemToolRequest
 }
+@available(iOS 26.0, *)
 private struct AgentAlarmMetadata: AlarmMetadata { var title: String }
 
 @MainActor
@@ -134,15 +135,20 @@ final class SystemTools: ObservableObject {
             options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]; options.fetchLimit = 1000
             let assets = PHAsset.fetchAssets(with: options); var rows: [[String: String]] = []; var total = 0
             assets.enumerateObjects { asset, _, _ in
-                let name = PHAssetResource.assetResources(for: asset).first?.filename ?? ""
+                let resource = PHAssetResource.assetResources(for: asset).first
+                let name: String
+                if #available(iOS 27, *) { name = resource?.filename ?? "" }
+                else { name = resource?.originalFilename ?? "" }
                 guard self.matchesQuery(name, request.query) else { return }; total += 1
                 if rows.count < 20 { rows.append(["file": name, "date": asset.creationDate.map(self.iso) ?? "未知", "size": "\(asset.pixelWidth)×\(asset.pixelHeight)", "type": asset.mediaType == .video ? "video" : "image"]) }
             }
             result = json(rows, total: total) + "\n仅授权可见照片的元数据；最多扫描 1000 项，不含图像内容。"
         case .alarm_list:
+            guard #available(iOS 26.0, *) else { throw AgentError.message("闹钟功能需要 iOS 26 或更新系统") }
             let alarms = try AlarmManager.shared.alarms
             result = (String(data: try encoder.encode(Array(alarms.prefix(20))), encoding: .utf8) ?? "[]") + "\n本 App 闹钟总数：\(alarms.count)，返回前 20 项"
         case .alarm_create:
+            guard #available(iOS 26.1, *) else { throw AgentError.message("创建闹钟需要 iOS 26.1 或更新系统") }
             let title = canonical.title!
             let presentation = AlarmPresentation(alert: .init(title: LocalizedStringResource(stringLiteral: title)))
             let attributes = AlarmAttributes(presentation: presentation, metadata: AgentAlarmMetadata(title: title), tintColor: .blue)
@@ -172,6 +178,7 @@ final class SystemTools: ObservableObject {
             let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
             guard [.authorized, .limited].contains(status) else { throw AgentError.message("没有照片访问权限") }
         case .alarm_create, .alarm_list:
+            guard #available(iOS 26.0, *) else { throw AgentError.message("闹钟功能需要 iOS 26 或更新系统") }
             guard try await AlarmManager.shared.requestAuthorization() == .authorized else { throw AgentError.message("没有闹钟访问权限") }
         }
     }

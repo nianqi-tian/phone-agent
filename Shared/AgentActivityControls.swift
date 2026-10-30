@@ -29,8 +29,10 @@ enum AgentActivityControls {
 struct PauseActivityPhoneTaskIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "暂停实时活动中的手机任务"
     static let description = IntentDescription("暂停此卡片对应的当前执行，取消计划并释放输入。")
-    static let supportedModes: IntentModes = [.background]
-    static let allowedExecutionTargets: IntentExecutionTargets = [.main]
+    @available(iOS 26.0, *)
+    static var supportedModes: IntentModes { [.background] }
+    @available(iOS 27.0, *)
+    static var allowedExecutionTargets: IntentExecutionTargets { [.main] }
     static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
     static let isDiscoverable = false
     @Parameter(title: "任务标识") var taskID: String
@@ -46,8 +48,10 @@ struct PauseActivityPhoneTaskIntent: LiveActivityIntent {
 struct StopActivityPhoneTaskIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "停止实时活动中的手机任务"
     static let description = IntentDescription("结束此卡片对应的任务并暂停队列，等待项保留。")
-    static let supportedModes: IntentModes = [.background]
-    static let allowedExecutionTargets: IntentExecutionTargets = [.main]
+    @available(iOS 26.0, *)
+    static var supportedModes: IntentModes { [.background] }
+    @available(iOS 27.0, *)
+    static var allowedExecutionTargets: IntentExecutionTargets { [.main] }
     static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
     static let isDiscoverable = false
     @Parameter(title: "任务标识") var taskID: String
